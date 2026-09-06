@@ -1,2 +1,2 @@
-# weather-recommendations
+# weather-activity-suitability
 Backend service that turns Open-Meteo weather data into seven-day activity suitability ratings.
