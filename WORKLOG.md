@@ -20,3 +20,6 @@ Note: For most skills, ChatGPT at Terra-Medium was used.
 Decided that Spike 001 should establish both weather and marine provider
 boundaries, while still deferring the final observation set and activity
 methodology to Spike 002.
+14. Spike 001 brief-readiness review completed: the new marine boundary needs a
+    minimum public degraded-data representation before independent implementation
+    and evaluation can proceed.

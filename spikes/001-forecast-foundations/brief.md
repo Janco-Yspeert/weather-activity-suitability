@@ -28,6 +28,15 @@ Given a city or town input, the service must:
 The `UNKNOWN` values are explicit placeholders for this spike and do not satisfy
 the final activity-ranking requirement.
 
+Spike 001 must establish both the Open-Meteo forecast and marine provider
+boundaries.
+
+Only the minimum observations required to validate each boundary, coverage,
+timezone behaviour, nullability and failure semantics need to be requested.
+
+The final weather and marine observations used by activity scoring remain
+deferred to Spike 002.
+
 ## Forecast lifecycle in this spike
 
 This spike establishes the application-level forecast lifecycle contract:
@@ -81,3 +90,7 @@ operation.
   coalesced within one service instance;
 - request-time persisted snapshot reuse and stale fallback are not required
   by this spike.
+- ordinary forecast and marine responses are independently validated;
+- actual coverage is calculated for both provider sources;
+- failure of the marine source does not invalidate otherwise usable weather data;
+- the fields fetched in this spike are not treated as the final activity data model.
