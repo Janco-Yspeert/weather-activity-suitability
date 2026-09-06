@@ -256,3 +256,5 @@ The main decisions still intentionally deferred to the activity-scoring spike ar
 - snapshot cleanup/retention policy beyond the fact that it is not required for the take-home.
 
 Those should be settled when there is enough product information to make them real decisions rather than guesses.
+
+Spike 1 defines and tests the forecast lifecycle rules as application contracts, but does not implement request-time snapshot reuse or stale fallback. Those behaviours are implemented when durable persistence is introduced.
