@@ -78,6 +78,33 @@ Open-Meteo cannot establish whether a ski resort exists, whether lifts are opera
 
 Surfing is therefore a coarse location-level marine assessment rather than a surf-break recommendation. Skiing is a weather-suitability assessment only; its methodology must not imply resort or infrastructure availability.
 
+## Activity methodology
+
+The detailed activity-rating methodology is intentionally deferred from the
+initial project brief.
+
+This brief defines the public meaning of the ratings and the constraints that
+the methodology must preserve, but does not yet define the exact forecast
+signals, aggregation rules, thresholds, or worked examples for each activity.
+
+Spike 2 will produce that methodology before activity-rating implementation
+begins.
+
+The methodology must define, for each activity:
+
+- the forecast observations used;
+- any prerequisite or hard-gate conditions;
+- the mapping from observations to public rating values;
+- missing-data behaviour;
+- representative and boundary examples.
+
+Once agreed, the methodology becomes part of the governing product contract.
+`brief.md` must be updated to reference or incorporate it before Spike 2
+implementation proceeds.
+
+Until that refinement exists, the service is not considered complete against
+the source brief.
+
 ## Forecast lifecycle
 
 ### Persistence and reuse
@@ -177,6 +204,34 @@ That spike will determine, for each activity:
 - which forecast observations must therefore be retained and persisted.
 
 This sequencing is deliberate. The product meaning is fixed first; the detailed heuristic and persistent payload are defined only once there is enough information to make those choices responsibly.
+
+## Submission and delivery
+
+The completed work will be submitted as a public GitHub repository.
+
+The repository must make the working process visible, including consequential
+decisions, changes of direction, use of AI, and deliberate omissions or
+deferrals.
+
+The final repository must include a short `README.md` covering:
+
+- what was built;
+- how to install and run it;
+- how to run the relevant checks/tests;
+- key assumptions and deliberate limitations.
+
+The completed service must be runnable from documented repository commands.
+
+### README ownership
+
+`README.md` is reserved for the final documentation phase.
+
+AI implementation, design, evaluation and as-built agents must not create,
+rewrite, expand or otherwise modify `README.md` unless explicitly instructed
+to do so during the final documentation pass.
+
+During implementation, record information that may eventually belong in the
+README in the relevant spike artifacts or `WORKLOG.md` instead.
 
 ## Non-goals
 
