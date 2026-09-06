@@ -2,42 +2,31 @@
 
 ## Verdict
 
-The brief is not yet ready to govern independent implementation and evaluation of the complete service.
+The main brief is ready to govern the staged delivery of the service.
 
 ## Source and Repository Coverage
 
-The review compared `brief.md` with `source-brief.md`. The authored brief preserves and clarifies the service purpose, the four activities, city-or-town input, Open-Meteo as the data provider, persistence, Node.js, and GraphQL. It also records additional product decisions about destination-local dates, forecast reuse, stale fallback, partial-data handling, and runtime validation at the provider boundary.
+The review compared `brief.md` with `source-brief.md`, and inspected the repository instructions and `decisions.md` as the relevant inherited decision record. Together, these documents retain the supplied service purpose, four activities, city-or-town input, Open-Meteo provider, persistence requirement, Node.js, GraphQL, public repository, process visibility, and README requirements.
 
-The repository currently contains only the TypeScript and test-tooling baseline and a smoke test. It provides no inherited service behavior or public API that constrains this review.
+The main brief defines the product contract and deliberate deferrals. The decision record supplies the current staged boundary: the forecast-foundation increment establishes location, destination-local time-window, provider, and forecast lifecycle behavior while activity outcomes may be `UNKNOWN`; the later activity-scoring increment defines and implements the methodology. This separation does not weaken the source requirement because the main brief states that the service is incomplete until the methodology is incorporated.
 
-## Material Findings
+## Findings
 
-### Blocker: Activity ratings cannot be implemented or evaluated
+No blockers or material clarifications were identified for the main brief as a parent contract for staged work.
 
-`source-brief.md` requires the service to rank each of the next seven days for skiing, surfing, outdoor sightseeing, and indoor sightseeing. `brief.md` defines the rating vocabulary but explicitly defers the evidence, hard gates, rating boundaries, missing-data rules, and worked examples for every activity to a future activity-methodology spike.
-
-This leaves no basis to determine whether a particular forecast should yield `UNSUITABLE`, `POOR`, `FAIR`, `GOOD`, or `EXCELLENT`, or when an otherwise available observation set should yield `UNKNOWN`. An implementation could return `UNKNOWN` for every activity and satisfy the stated deferred rules while failing the source requirement to provide useful rankings.
-
-Requested clarification: provide the activity methodology as part of this work item, or explicitly scope this brief to a forecast-foundation increment whose required response values are `UNKNOWN` and provide the later methodology work item that completes the source requirement.
-
-### Blocker: Submission requirements are not incorporated into the authored contract
-
-`source-brief.md` requires a public GitHub repository, visible evidence of the working process, and a short README covering what was built, how to run it, and assumptions. `brief.md` says the source brief remains authoritative but does not explicitly retain these delivery requirements or define how the completed service must be runnable.
-
-These requirements materially affect the final repository and evaluation, even though they do not change the runtime service behavior.
-
-Requested clarification: add an explicit delivery section that retains the public repository, transparent process record, and README requirements, including the expected runnable entry point or command.
+The new Spike 001 brief was intentionally not inspected or reviewed. Its own readiness must be assessed separately against this main brief and the source assignment.
 
 ## Strengths Relevant to Readiness
 
-- The service boundary is clear: assess weather suitability at a city or town, rather than activity availability or arbitrary geographic features.
-- The seven-day window is deterministic and uses the resolved location's local calendar, excluding the partial current day.
-- The rating vocabulary distinguishes absence of trustworthy evidence from an affirmative unsuitable conclusion.
-- Snapshot identity, freshness, coverage, lazy refresh, in-process refresh coalescing, and stale-fallback limits are specified clearly enough to guide a later forecast implementation.
-- The brief correctly prevents missing weather or marine data from being represented as an unsuitable result.
+- The service boundary is clear: it assesses weather suitability at a resolved city or town without claiming activity availability.
+- The seven-day window is deterministic and based on the resolved destination's local calendar.
+- Rating meanings, including the distinction between `UNKNOWN` and `UNSUITABLE`, are explicit.
+- Forecast persistence, freshness, coverage, lazy refresh, coalescing, stale fallback, and partial-data behavior are defined.
+- The scoring methodology is deliberately deferred to a later, identified increment rather than left as an unacknowledged omission.
+- The delivery requirements from the supplied assignment are explicitly retained.
 
 ## Review Limitations and Evidence Inspected
 
-Inspected `brief.md`, `source-brief.md`, `README.md`, the current TypeScript/Vitest baseline, and `WORKLOG.md`. No inherited implementation, public GraphQL schema, design map, evaluation plan, evaluation artifacts, or implementation reports were reviewed.
+Inspected `brief.md`, `source-brief.md`, `AGENTS.md`, `decisions.md`, `README.md`, `package.json`, and the current smoke test. The new Spike 001 brief was not inspected. No design map, evaluation plan, evaluation artifacts, implementation reports, or previous readiness review were reviewed.
 
-NOT READY
+READY
