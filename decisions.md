@@ -257,4 +257,8 @@ The main decisions still intentionally deferred to the activity-scoring spike ar
 
 Those should be settled when there is enough product information to make them real decisions rather than guesses.
 
+## Further decisions
+
 Spike 1 defines and tests the forecast lifecycle rules as application contracts, but does not implement request-time snapshot reuse or stale fallback. Those behaviours are implemented when durable persistence is introduced.
+
+The observations requested from Open-Meteo are selected by application requirements and translated to provider-specific field names at the adapter boundary. Spike 1 uses a minimal representative observation set; Spike 2 defines the final set from the activity methodology.

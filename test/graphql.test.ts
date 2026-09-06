@@ -17,7 +17,7 @@ describe("forecast GraphQL contract", () => {
         country: "Germany",
         admin1: "Berlin",
       }),
-      fetchForecast: async () => ({
+      fetchWeather: async () => ({
         localTimestamps: [
           "2026-09-07T00:00",
           "2026-09-08T00:00",
@@ -27,6 +27,19 @@ describe("forecast GraphQL contract", () => {
           "2026-09-12T00:00",
           "2026-09-13T00:00",
         ],
+        observations: { airTemperature: [1, 1, 1, 1, 1, 1, 1] },
+      }),
+      fetchMarine: async () => ({
+        localTimestamps: [
+          "2026-09-07T00:00",
+          "2026-09-08T00:00",
+          "2026-09-09T00:00",
+          "2026-09-10T00:00",
+          "2026-09-11T00:00",
+          "2026-09-12T00:00",
+          "2026-09-13T00:00",
+        ],
+        observations: { waveHeight: [null, null, null, null, null, null, null] },
       }),
     };
     const schema = createSchema(new ForecastService(provider, () => new Date("2026-09-06T10:00:00.000Z")));
@@ -36,7 +49,10 @@ describe("forecast GraphQL contract", () => {
       source: `
         query Forecast($place: String!) {
           forecast(location: $place) {
-            metadata { fetchedAt forecastCoveredDates hasRequiredCoverage }
+            metadata {
+              weather { state coveredDates }
+              marine { state coveredDates }
+            }
             location { id name latitude longitude timezone countryCode country admin1 }
             dates
             skiing
@@ -53,17 +69,19 @@ describe("forecast GraphQL contract", () => {
     expect(result.data).toEqual({
       forecast: {
         metadata: {
-          fetchedAt: "2026-09-06T10:00:00.000Z",
-          forecastCoveredDates: [
-            "2026-09-07",
-            "2026-09-08",
-            "2026-09-09",
-            "2026-09-10",
-            "2026-09-11",
-            "2026-09-12",
-            "2026-09-13",
-          ],
-          hasRequiredCoverage: true,
+          weather: {
+            state: "AVAILABLE",
+            coveredDates: [
+              "2026-09-07",
+              "2026-09-08",
+              "2026-09-09",
+              "2026-09-10",
+              "2026-09-11",
+              "2026-09-12",
+              "2026-09-13",
+            ],
+          },
+          marine: { state: "NO_DATA", coveredDates: [] },
         },
         location: {
           id: "2950159",

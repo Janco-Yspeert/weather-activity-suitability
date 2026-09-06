@@ -1,18 +1,38 @@
-import { forecastCoverage, getTargetDates, type LocalDate } from "./forecast-policy.js";
-import type { ForecastData, ResolvedLocation } from "./open-meteo.js";
+import { getTargetDates, type LocalDate } from "./forecast-policy.js";
+import type {
+  MarineObservation,
+  ResolvedLocation,
+  SourceForecast,
+  WeatherObservation,
+} from "./open-meteo.js";
+
+const REQUIRED_WEATHER_OBSERVATIONS = ["airTemperature"] as const satisfies readonly WeatherObservation[];
+const REQUIRED_MARINE_OBSERVATIONS = ["waveHeight"] as const satisfies readonly MarineObservation[];
 
 export interface ForecastProvider {
   resolveLocation(query: string): Promise<ResolvedLocation>;
-  fetchForecast(location: ResolvedLocation): Promise<ForecastData>;
+  fetchWeather(
+    location: ResolvedLocation,
+    observations: readonly WeatherObservation[],
+  ): Promise<SourceForecast>;
+  fetchMarine(
+    location: ResolvedLocation,
+    observations: readonly MarineObservation[],
+  ): Promise<SourceForecast>;
 }
 
 export type ActivityRating = "UNKNOWN" | "UNSUITABLE" | "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+export type SourceState = "AVAILABLE" | "PARTIAL" | "NO_DATA" | "UNAVAILABLE";
+
+export interface SourceAvailability {
+  state: SourceState;
+  coveredDates: LocalDate[];
+}
 
 export interface ForecastAssessment {
   metadata: {
-    fetchedAt: string;
-    forecastCoveredDates: LocalDate[];
-    hasRequiredCoverage: boolean;
+    weather: SourceAvailability;
+    marine: SourceAvailability;
   };
   location: ResolvedLocation;
   dates: LocalDate[];
@@ -22,13 +42,13 @@ export interface ForecastAssessment {
   indoorSightseeing: ActivityRating[];
 }
 
-interface FetchedForecast {
-  fetchedAt: Date;
-  coveredDates: Set<LocalDate>;
+interface FetchedSources {
+  weather: SourceForecast | null;
+  marine: SourceForecast | null;
 }
 
 export class ForecastService {
-  private readonly inFlightForecasts = new Map<string, Promise<FetchedForecast>>();
+  private readonly inFlightForecasts = new Map<string, Promise<FetchedSources>>();
 
   constructor(
     private readonly provider: ForecastProvider,
@@ -41,16 +61,13 @@ export class ForecastService {
 
     const location = await this.provider.resolveLocation(normalizedQuery);
     const dates = getTargetDates(this.clock(), location.timezone);
-    const forecast = await this.refresh(location);
-    const forecastCoveredDates = [...forecast.coveredDates].sort();
-    const hasRequiredCoverage = dates.every((date) => forecast.coveredDates.has(date));
+    const sources = await this.refresh(location);
     const placeholders = (): ActivityRating[] => dates.map(() => "UNKNOWN");
 
     return {
       metadata: {
-        fetchedAt: forecast.fetchedAt.toISOString(),
-        forecastCoveredDates,
-        hasRequiredCoverage,
+        weather: describeAvailability(sources.weather, dates),
+        marine: describeAvailability(sources.marine, dates),
       },
       location,
       dates,
@@ -61,11 +78,11 @@ export class ForecastService {
     };
   }
 
-  private async refresh(location: ResolvedLocation): Promise<FetchedForecast> {
+  private async refresh(location: ResolvedLocation): Promise<FetchedSources> {
     const existing = this.inFlightForecasts.get(location.id);
     if (existing) return existing;
 
-    const refresh = this.fetchAndDescribe(location);
+    const refresh = this.fetchSources(location);
     this.inFlightForecasts.set(location.id, refresh);
     try {
       return await refresh;
@@ -76,11 +93,38 @@ export class ForecastService {
     }
   }
 
-  private async fetchAndDescribe(location: ResolvedLocation): Promise<FetchedForecast> {
-    const forecast = await this.provider.fetchForecast(location);
-    return {
-      fetchedAt: this.clock(),
-      coveredDates: forecastCoverage(forecast.localTimestamps),
-    };
+  private async fetchSources(location: ResolvedLocation): Promise<FetchedSources> {
+    const [weather, marine] = await Promise.all([
+      asSourceOutcome(this.provider.fetchWeather(location, REQUIRED_WEATHER_OBSERVATIONS)),
+      asSourceOutcome(this.provider.fetchMarine(location, REQUIRED_MARINE_OBSERVATIONS)),
+    ]);
+    return { weather, marine };
   }
+}
+
+async function asSourceOutcome(request: Promise<SourceForecast>): Promise<SourceForecast | null> {
+  try {
+    return await request;
+  } catch {
+    return null;
+  }
+}
+
+function describeAvailability(
+  forecast: SourceForecast | null,
+  targetDates: readonly LocalDate[],
+): SourceAvailability {
+  if (forecast === null) return { state: "UNAVAILABLE", coveredDates: [] };
+
+  const usableDates = new Set<LocalDate>();
+  const observationSeries = Object.values(forecast.observations);
+  forecast.localTimestamps.forEach((timestamp, index) => {
+    if (observationSeries.some((series) => series[index] != null)) {
+      usableDates.add(timestamp.slice(0, 10) as LocalDate);
+    }
+  });
+  const coveredDates = targetDates.filter((date) => usableDates.has(date));
+  const state: SourceState =
+    coveredDates.length === targetDates.length ? "AVAILABLE" : coveredDates.length > 0 ? "PARTIAL" : "NO_DATA";
+  return { state, coveredDates };
 }

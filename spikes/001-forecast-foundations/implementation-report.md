@@ -4,29 +4,33 @@ Status: IMPLEMENTED
 
 ## Files and behavior changed
 
-- `src/forecast-policy.ts` calculates seven complete destination-local future dates, derives actual coverage from provider timestamps, and exposes storage-independent fresh/stale eligibility policy.
-- `src/open-meteo.ts` resolves supported populated places and fetches hourly forecast coverage through runtime-validated Open-Meteo boundaries.
-- `src/forecast-service.ts` assembles the foundation response and coalesces simultaneous forecast refreshes by canonical provider location ID.
-- `src/graphql.ts` exposes the agreed query, location, metadata, target-date, and activity-rating shapes as an executable GraphQL schema.
-- `src/index.ts` composes the production schema with the Open-Meteo client.
-- Focused tests cover date-window and lifecycle boundaries, provider validation/mapping, coalescing and cleanup, partial coverage metadata, placeholder ratings, and GraphQL execution.
+- `src/forecast-policy.ts` calculates seven complete destination-local future dates, derives timestamp coverage, and exposes storage-independent fresh/stale eligibility policy.
+- `src/open-meteo.ts` resolves supported populated places and independently fetches and runtime-validates ordinary weather and marine data. Application observation names are translated to provider fields at this boundary.
+- `src/forecast-service.ts` selects Spike 001's representative observations, acquires both sources independently, distinguishes successful no-data responses from failures, calculates usable target-window coverage, exposes per-source availability, and coalesces simultaneous refreshes by canonical provider location ID.
+- `src/graphql.ts` exposes weather and marine `AVAILABLE`, `PARTIAL`, `NO_DATA`, or `UNAVAILABLE` records and their covered dates alongside the location, target dates, and placeholder activity ratings.
+- Focused tests cover date and lifecycle boundaries, both provider adapters, observation translation, nullability, source degradation, per-source coverage/state, refresh coalescing and cleanup, and GraphQL execution.
 
 ## Consequential implementation decisions
 
-- The service records `fetchedAt` after a successful provider response. A failed operation therefore cannot accidentally acquire snapshot metadata or look reusable.
-- The in-flight registry owns only forecast refreshes, not geocoding requests. Canonical identity is unavailable until resolution completes; once known, aliases resolving to the same provider ID share the same forecast promise. A guarded `finally` removes both fulfilled and rejected operations.
-- The adapter requests 195 hourly temperature observations as the smallest concrete Open-Meteo time series needed to obtain local timestamps. Coverage is derived solely from timestamps actually returned. Temperature is not exposed or interpreted by this spike.
-- The provider boundary uses small explicit validators rather than adding Zod for two narrow DTOs. This preserves the required runtime boundary without adding a dependency before the eventual forecast observation model is known.
-- GraphQL is exposed as a composed executable schema without selecting an HTTP transport. Transport does not affect this spike's operation or response contract and can be added when the runnable delivery surface is addressed.
+- A target date counts as usable source coverage when at least one returned timestamp on that date has a non-null value for a requested representative observation. A successful source with no usable observations in the target window is `NO_DATA`; this preserves positive evidence of absence for Spike 002 without prematurely implementing activity scoring.
+- Weather and marine requests begin together and settle independently. A rejected or malformed source becomes `UNAVAILABLE`, distinct from `NO_DATA`, and does not discard valid data from the other source.
+- One canonical-location in-flight operation owns both source requests. Aliases resolving to the same provider location share that operation, and a guarded `finally` releases fulfilled or degraded operations so later requests refresh again.
+- The application currently selects `airTemperature` and `waveHeight`; the adapter translates these to `temperature_2m` and `wave_height`. The 195-hour provider horizon remains adapter-owned, while the selected observations do not.
+- The provider boundary retains small explicit validators rather than adding a validation dependency for the two narrow source DTOs.
 
 ## Bounded discovery
 
-The current official Open-Meteo documentation confirms that geocoding accepts the full qualified query in `name`, returns provider ID, GeoNames feature code, coordinates, and IANA timezone, and that the forecast endpoint accepts an IANA `timezone`, returns local hourly timestamps, and supports `forecast_hours`. Those facts define the adapter request and validation boundary.
+Official Open-Meteo documentation established that the weather and marine endpoints both accept `timezone`, `hourly`, and `forecast_hours`, return destination-local hourly timestamps, and represent unavailable observation values as nulls.
+
+Live Cape Town probes then verified both boundaries. The exact production-shaped `forecast_hours=195` requests returned 195 aligned timestamps and values from each endpoint, echoed `Africa/Johannesburg`, and covered `2026-09-07T00:00` through `2026-09-15T02:00`. Weather and marine returned different model grid coordinates, so neither source grid coordinate is used as canonical location identity.
 
 ## Tests and checks
 
-- `npm test`: 5 files passed, 16 tests passed.
+- `npm test`: 5 files passed, 20 tests passed.
 - `npm run typecheck`: passed under strict TypeScript settings.
-- `git diff --check`: passed.
+- Live Open-Meteo weather and marine smoke requests: passed.
+- `git diff --check`: the implementation changes are clean, but the repository check still reports pre-existing trailing whitespace in the earlier human-authored `WORKLOG.md` entry 13. The append-only worklog rule prevents rewriting that entry during this phase.
 
-No live-provider smoke test was run; provider behavior is isolated behind deterministic boundary tests, and the external request contract was checked against the official documentation.
+The live provider check is bounded discovery, not part of the deterministic test suite. HTTP transport, durable snapshot reuse, stale request-path fallback, and activity scoring remain deferred by the spike contract.
+
+The explicit implementation feedback adds `NO_DATA` and supersedes the READY Design Map's earlier rule that collapsed every successful empty target-window result into `UNAVAILABLE`. The brief and Design Map were not modified because this phase may change only implementation, visible tests, the implementation report, and the append-only worklog.

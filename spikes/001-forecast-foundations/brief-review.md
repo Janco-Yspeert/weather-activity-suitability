@@ -2,33 +2,48 @@
 
 ## Verdict
 
-The revised brief is **not ready** for independent implementation and evaluation. The new marine boundary is correctly bounded, but it omits the observable response contract required when that independent source is absent or partially covered.
+The revised brief is ready to govern independent implementation and evaluation
+of the bounded forecast foundation.
 
 ## Source and inherited-contract coverage
 
-- The source assignment requires a Node.js GraphQL service using Open-Meteo to assess the next seven days. The spike deliberately and explicitly defers the final assessment methodology while retaining seven aligned `UNKNOWN` placeholders; that is an acceptable bounded foundation.
-- The parent brief requires weather and marine data to degrade independently: usable ordinary weather must still produce a response if marine data is unavailable, and response metadata must make degraded data visible. It also requires coverage to be based on returned data rather than a requested horizon.
-- The revised spike now carries those boundary requirements forward: it requires independent runtime validation and coverage calculation for ordinary forecast and marine responses, and says marine failure must not invalidate usable weather. The final observation set and activity methodology remain explicitly deferred to Spike 002.
+- The source assignment requires a Node.js GraphQL service using Open-Meteo to
+  assess the next seven days. This spike deliberately defers final activity
+  methodology while retaining seven aligned `UNKNOWN` placeholders; it does not
+  present those placeholders as completion of the assignment.
+- The inherited product contract requires destination-local dates, canonical
+  provider-backed locations, actual rather than requested coverage, provider
+  boundary validation, bounded freshness policy, and in-process refresh
+  coalescing. The spike preserves these contracts and explicitly defers durable
+  request-path persistence and activity-specific data rules.
+- The parent contract also requires independent weather and marine degradation
+  to be visible. The new source-availability section supplies the previously
+  missing public contract: both sources expose `AVAILABLE`, `PARTIAL`, or
+  `UNAVAILABLE` state and their actual destination-local covered dates. It also
+  explicitly preserves usable weather results when marine data fails.
 
 ## Material findings
 
-### 1. Marine degradation is not given an observable GraphQL representation
-
-The parent contract says degraded data must be visible in response metadata. The revised spike requires that a marine failure not invalidate usable weather, but its required GraphQL shape and acceptance criteria do not say what response state represents marine failure, partial marine coverage, or unavailable marine data. The existing GraphQL contract exposes only aggregate forecast coverage and `UNKNOWN` placeholders, so all of those marine states are currently indistinguishable to a caller.
-
-That leaves independent implementations free to return a successful response silently, add incompatible metadata, or surface a GraphQL error while still arguing that weather data was fetched. None is a fair common contract.
-
-**Requested clarification:** state the minimum public metadata for each source: ordinary-weather and marine availability/failure state and their actual covered dates (or an equivalently explicit representation). It need not prescribe the final SDL or activity scoring; it only needs to make a successful-but-degraded marine result distinguishable from fully available data.
+No blockers or material clarifications were identified.
 
 ## Strengths relevant to readiness
 
-- The scope cleanly distinguishes application-owned lifecycle policy from deferred request-time persistence behavior.
-- In-process same-location refresh coalescing remains explicit and bounded to one service instance.
-- The requirement to validate provider data before application mapping is retained for both boundaries.
-- The brief avoids inventing a premature activity data model: only enough observations to exercise boundary validation, coverage, timezone, nullability and failure behavior are required.
+- The two provider boundaries are introduced without prematurely choosing the
+  final observations or activity methodology.
+- Source availability and coverage are observable independently, making a
+  successful-but-degraded response evaluable rather than silently magical.
+- Lifecycle policy remains storage-independent and has a clear boundary from
+  deferred request-time snapshot reuse and stale fallback.
+- The scope continues to distinguish inherited behavior, this spike's new
+  marine-boundary extension, and explicitly deferred concerns.
 
 ## Review limitations and evidence inspected
 
-Reviewed `spikes/001-forecast-foundations/brief.md`, the supplied `source-brief.md`, inherited `brief.md`, `decisions.md`, repository instructions, and the current public/provider/service interfaces and focused tests under `src/` and `test/`. The implementation was inspected only as existing-contract evidence. Design maps, evaluation artifacts, implementation reports, and as-built artifacts were not consulted.
+Reviewed `spikes/001-forecast-foundations/brief.md`, the supplied
+`source-brief.md`, inherited `brief.md`, `decisions.md`, repository
+instructions, and the current public/provider/service interfaces. The existing
+implementation was inspected only as repository-contract evidence. Design maps,
+evaluation artifacts, implementation reports, and as-built artifacts were not
+consulted.
 
-NOT READY
+READY

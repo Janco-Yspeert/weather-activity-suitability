@@ -37,6 +37,28 @@ timezone behaviour, nullability and failure semantics need to be requested.
 The final weather and marine observations used by activity scoring remain
 deferred to Spike 002.
 
+## Source availability metadata
+
+The GraphQL response must make the state of each upstream forecast source
+observable.
+
+For both ordinary weather and marine data, response metadata must expose:
+
+- source state;
+- the destination-local dates actually covered by that source.
+
+The minimum source states for this spike are:
+
+- `AVAILABLE` — usable data is available for the source;
+- `PARTIAL` — usable data is available for only part of the requested window;
+- `UNAVAILABLE` — the source could not provide usable data.
+
+A marine failure must not invalidate otherwise usable weather data.
+
+The exact GraphQL SDL is left to implementation, but a caller must be able to
+distinguish a fully available response from a successful response degraded by
+marine failure or incomplete marine coverage.
+
 ## Forecast lifecycle in this spike
 
 This spike establishes the application-level forecast lifecycle contract:
@@ -57,6 +79,18 @@ observations must be retained.
 
 The freshness, coverage and stale-fallback rules should be represented as
 application-owned policy and may be tested independently of storage.
+
+### Provider observation selection
+
+The Open-Meteo adapter must not embed the current Spike 1 observation set as
+fixed request fields.
+
+The application selects the observations it requires; the provider adapter
+owns translation from application observation names to Open-Meteo field names.
+
+Spike 1 uses only the minimal representative weather and marine observations
+needed to establish the provider boundaries. The final observation set remains
+deferred to the activity methodology.
 
 ## Refresh coalescing
 

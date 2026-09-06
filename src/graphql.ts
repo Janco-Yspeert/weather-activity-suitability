@@ -12,10 +12,21 @@ const typeDefinitions = /* GraphQL */ `
     EXCELLENT
   }
 
+  enum SourceState {
+    AVAILABLE
+    PARTIAL
+    NO_DATA
+    UNAVAILABLE
+  }
+
+  type SourceAvailability {
+    state: SourceState!
+    coveredDates: [String!]!
+  }
+
   type ForecastMetadata {
-    fetchedAt: String!
-    forecastCoveredDates: [String!]!
-    hasRequiredCoverage: Boolean!
+    weather: SourceAvailability!
+    marine: SourceAvailability!
   }
 
   type ResolvedLocation {

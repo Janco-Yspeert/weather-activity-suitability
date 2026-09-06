@@ -9,14 +9,24 @@ export interface ResolvedLocation {
   admin1?: string;
 }
 
-export interface ForecastData {
+export type WeatherObservation = "airTemperature";
+export type MarineObservation = "waveHeight";
+
+export interface SourceForecast {
   localTimestamps: readonly string[];
+  observations: Readonly<Record<string, readonly (number | null)[]>>;
 }
 
 type Fetcher = (url: string) => Promise<Response>;
 
 const POPULATED_PLACE_CODES = new Set(["PPL", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5", "PPLC", "PPLG"]);
 const LOCAL_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const WEATHER_FIELDS: Record<WeatherObservation, string> = {
+  airTemperature: "temperature_2m",
+};
+const MARINE_FIELDS: Record<MarineObservation, string> = {
+  waveHeight: "wave_height",
+};
 
 export class ProviderResponseError extends Error {
   constructor(message: string) {
@@ -56,17 +66,38 @@ export class OpenMeteoClient {
     };
   }
 
-  async fetchForecast(location: ResolvedLocation): Promise<ForecastData> {
-    const url = new URL("https://api.open-meteo.com/v1/forecast");
+  async fetchWeather(
+    location: ResolvedLocation,
+    observations: readonly WeatherObservation[],
+  ): Promise<SourceForecast> {
+    return this.fetchSource("https://api.open-meteo.com/v1/forecast", location, observations, WEATHER_FIELDS);
+  }
+
+  async fetchMarine(
+    location: ResolvedLocation,
+    observations: readonly MarineObservation[],
+  ): Promise<SourceForecast> {
+    return this.fetchSource("https://marine-api.open-meteo.com/v1/marine", location, observations, MARINE_FIELDS);
+  }
+
+  private async fetchSource<Observation extends string>(
+    endpoint: string,
+    location: ResolvedLocation,
+    observations: readonly Observation[],
+    providerFields: Readonly<Record<Observation, string>>,
+  ): Promise<SourceForecast> {
+    if (observations.length === 0) throw new Error("At least one observation must be requested");
+    const requestedFields = observations.map((observation) => providerFields[observation]);
+    const url = new URL(endpoint);
     url.search = new URLSearchParams({
       latitude: String(location.latitude),
       longitude: String(location.longitude),
       timezone: location.timezone,
-      hourly: "temperature_2m",
+      hourly: requestedFields.join(","),
       forecast_hours: "195",
     }).toString();
     const body = await this.requestJson(url);
-    return parseForecastResponse(body, location.timezone);
+    return parseSourceResponse(body, location.timezone, observations, providerFields);
   }
 
   private async requestJson(url: URL): Promise<unknown> {
@@ -163,23 +194,34 @@ function parseGeocodingResponse(value: unknown): GeocodingResult[] {
   });
 }
 
-function parseForecastResponse(value: unknown, expectedTimezone: string): ForecastData {
+function parseSourceResponse<Observation extends string>(
+  value: unknown,
+  expectedTimezone: string,
+  requestedObservations: readonly Observation[],
+  providerFields: Readonly<Record<Observation, string>>,
+): SourceForecast {
   if (!isRecord(value)) throw malformed("forecast response");
   if (requiredTimezone(value, "timezone") !== expectedTimezone) throw malformed("timezone");
   if (!isRecord(value.hourly)) throw malformed("hourly");
 
   const times = value.hourly.time;
-  const temperatures = value.hourly.temperature_2m;
   if (!Array.isArray(times) || !times.every((time) => typeof time === "string" && LOCAL_TIMESTAMP.test(time))) {
     throw malformed("hourly.time");
   }
-  if (
-    !Array.isArray(temperatures) ||
-    !temperatures.every((temperature) => temperature === null || (typeof temperature === "number" && Number.isFinite(temperature))) ||
-    temperatures.length !== times.length
-  ) {
-    throw malformed("hourly.temperature_2m");
+
+  const observations: Record<string, readonly (number | null)[]> = {};
+  for (const observation of requestedObservations) {
+    const providerField = providerFields[observation];
+    const values = value.hourly[providerField];
+    if (
+      !Array.isArray(values) ||
+      !values.every((item) => item === null || (typeof item === "number" && Number.isFinite(item))) ||
+      values.length !== times.length
+    ) {
+      throw malformed(`hourly.${providerField}`);
+    }
+    observations[observation] = values;
   }
 
-  return { localTimestamps: times };
+  return { localTimestamps: times, observations };
 }
