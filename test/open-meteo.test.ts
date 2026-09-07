@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OpenMeteoClient, ProviderRequestError, ProviderResponseError } from "../src/open-meteo.js";
+import {
+  OpenMeteoClient,
+  ProviderRequestError,
+  ProviderResponseError,
+} from "../src/open-meteo.js";
 
 function jsonResponse(body: unknown, ok = true): Response {
   return { ok, status: ok ? 200 : 503, json: async () => body } as Response;
@@ -38,7 +42,9 @@ describe("OpenMeteoClient", () => {
     );
     const client = new OpenMeteoClient(fetch);
 
-    await expect(client.resolveLocation("Cambridge, Massachusetts")).resolves.toEqual({
+    await expect(
+      client.resolveLocation("Cambridge, Massachusetts"),
+    ).resolves.toEqual({
       id: "2",
       name: "Cambridge",
       latitude: 42.3751,
@@ -49,7 +55,9 @@ describe("OpenMeteoClient", () => {
       admin1: "Massachusetts",
     });
     const requestedUrl = new URL(fetch.mock.calls[0]![0] as string);
-    expect(requestedUrl.searchParams.get("name")).toBe("Cambridge, Massachusetts");
+    expect(requestedUrl.searchParams.get("name")).toBe(
+      "Cambridge, Massachusetts",
+    );
   });
 
   it("rejects accepted provider results that contradict an authoritative qualifier", async () => {
@@ -71,17 +79,21 @@ describe("OpenMeteoClient", () => {
       }),
     );
 
-    await expect(client.resolveLocation("Cambridge, Cambridgeshire")).rejects.toThrow(
-      "No supported city or town found",
-    );
+    await expect(
+      client.resolveLocation("Cambridge, Cambridgeshire"),
+    ).rejects.toThrow("No supported city or town found");
   });
 
   it("rejects malformed geocoding data at the provider boundary", async () => {
     const client = new OpenMeteoClient(async () =>
-      jsonResponse({ results: [{ id: 1, name: "Cape Town", latitude: "nope" }] }),
+      jsonResponse({
+        results: [{ id: 1, name: "Cape Town", latitude: "nope" }],
+      }),
     );
 
-    await expect(client.resolveLocation("Cape Town")).rejects.toBeInstanceOf(ProviderResponseError);
+    await expect(client.resolveLocation("Cape Town")).rejects.toBeInstanceOf(
+      ProviderResponseError,
+    );
   });
 
   it("reports no supported location when only excluded feature codes are returned", async () => {
@@ -100,7 +112,9 @@ describe("OpenMeteoClient", () => {
       }),
     );
 
-    await expect(client.resolveLocation("Somewhere")).rejects.toThrow("No supported city or town found");
+    await expect(client.resolveLocation("Somewhere")).rejects.toThrow(
+      "No supported city or town found",
+    );
   });
 
   it("wraps transport failures as expected provider request errors", async () => {
@@ -108,9 +122,9 @@ describe("OpenMeteoClient", () => {
       throw new TypeError("network unavailable");
     });
 
-    await expect(client.fetchWeather(capeTown(), ["airTemperature"])).rejects.toBeInstanceOf(
-      ProviderRequestError,
-    );
+    await expect(
+      client.fetchWeather(capeTown(), ["airTemperature"]),
+    ).rejects.toBeInstanceOf(ProviderRequestError);
   });
 
   it("translates application-selected weather observations and maps validated data", async () => {
@@ -126,20 +140,25 @@ describe("OpenMeteoClient", () => {
     const client = new OpenMeteoClient(fetch);
 
     await expect(
-      client.fetchWeather({
-        id: "3369157",
-        name: "Cape Town",
-        latitude: -33.9258,
-        longitude: 18.4232,
-        timezone: "Africa/Johannesburg",
-      }, ["airTemperature"]),
+      client.fetchWeather(
+        {
+          id: "3369157",
+          name: "Cape Town",
+          latitude: -33.9258,
+          longitude: 18.4232,
+          timezone: "Africa/Johannesburg",
+        },
+        ["airTemperature"],
+      ),
     ).resolves.toEqual({
       localTimestamps: ["2026-09-07T00:00", "2026-09-07T01:00"],
       observations: { airTemperature: [12.3, null] },
     });
 
     const requestedUrl = new URL(fetch.mock.calls[0]![0] as string);
-    expect(requestedUrl.searchParams.get("timezone")).toBe("Africa/Johannesburg");
+    expect(requestedUrl.searchParams.get("timezone")).toBe(
+      "Africa/Johannesburg",
+    );
     expect(requestedUrl.searchParams.get("forecast_hours")).toBe("195");
     expect(requestedUrl.searchParams.get("hourly")).toBe("temperature_2m");
   });
@@ -156,56 +175,84 @@ describe("OpenMeteoClient", () => {
     );
     const client = new OpenMeteoClient(fetch);
 
-    await expect(client.fetchMarine(capeTown(), ["waveHeight"])).resolves.toEqual({
+    await expect(
+      client.fetchMarine(capeTown(), ["waveHeight"]),
+    ).resolves.toEqual({
       localTimestamps: ["2026-09-07T00:00", "2026-09-07T01:00"],
       observations: { waveHeight: [1.8, null] },
     });
 
     const requestedUrl = new URL(fetch.mock.calls[0]![0]);
     expect(requestedUrl.origin).toBe("https://marine-api.open-meteo.com");
-    expect(requestedUrl.searchParams.get("timezone")).toBe("Africa/Johannesburg");
-    expect(requestedUrl.searchParams.get("hourly")).toBe("wave_height");
-  });
-
-  it.each([
-    ["weather", (client: OpenMeteoClient) => client.fetchWeather(capeTown(), ["airTemperature"])],
-    ["marine", (client: OpenMeteoClient) => client.fetchMarine(capeTown(), ["waveHeight"])],
-  ])("rejects malformed or misaligned %s observations", async (_source, request) => {
-    const client = new OpenMeteoClient(async () =>
-      jsonResponse({
-        timezone: "Africa/Johannesburg",
-        hourly: { time: ["2026-09-07T00:00"], temperature_2m: [], wave_height: [] },
-      }),
+    expect(requestedUrl.searchParams.get("timezone")).toBe(
+      "Africa/Johannesburg",
     );
-
-    await expect(request(client)).rejects.toBeInstanceOf(ProviderResponseError);
+    expect(requestedUrl.searchParams.get("hourly")).toBe("wave_height");
   });
 
   it.each([
     [
       "weather",
+      (client: OpenMeteoClient) =>
+        client.fetchWeather(capeTown(), ["airTemperature"]),
+    ],
+    [
+      "marine",
+      (client: OpenMeteoClient) =>
+        client.fetchMarine(capeTown(), ["waveHeight"]),
+    ],
+  ])(
+    "rejects malformed or misaligned %s observations",
+    async (_source, request) => {
+      const client = new OpenMeteoClient(async () =>
+        jsonResponse({
+          timezone: "Africa/Johannesburg",
+          hourly: {
+            time: ["2026-09-07T00:00"],
+            temperature_2m: [],
+            wave_height: [],
+          },
+        }),
+      );
+
+      await expect(request(client)).rejects.toBeInstanceOf(
+        ProviderResponseError,
+      );
+    },
+  );
+
+  it.each([
+    [
+      "weather",
       "2026-02-30T12:00",
-      (client: OpenMeteoClient) => client.fetchWeather(capeTown(), ["airTemperature"]),
+      (client: OpenMeteoClient) =>
+        client.fetchWeather(capeTown(), ["airTemperature"]),
     ],
     [
       "marine",
       "2026-09-07T25:00",
-      (client: OpenMeteoClient) => client.fetchMarine(capeTown(), ["waveHeight"]),
+      (client: OpenMeteoClient) =>
+        client.fetchMarine(capeTown(), ["waveHeight"]),
     ],
-  ])("rejects semantically impossible %s local timestamps", async (_source, timestamp, request) => {
-    const client = new OpenMeteoClient(async () =>
-      jsonResponse({
-        timezone: "Africa/Johannesburg",
-        hourly: {
-          time: [timestamp],
-          temperature_2m: [12],
-          wave_height: [1.5],
-        },
-      }),
-    );
+  ])(
+    "rejects semantically impossible %s local timestamps",
+    async (_source, timestamp, request) => {
+      const client = new OpenMeteoClient(async () =>
+        jsonResponse({
+          timezone: "Africa/Johannesburg",
+          hourly: {
+            time: [timestamp],
+            temperature_2m: [12],
+            wave_height: [1.5],
+          },
+        }),
+      );
 
-    await expect(request(client)).rejects.toBeInstanceOf(ProviderResponseError);
-  });
+      await expect(request(client)).rejects.toBeInstanceOf(
+        ProviderResponseError,
+      );
+    },
+  );
 });
 
 function capeTown() {

@@ -9,8 +9,9 @@
     "npm": ">=11"
   },
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --exclude test/integration/*.test.ts",
+    "test:watch": "vitest --exclude test/integration/*.test.ts",
+    "test:integration": "vitest run test/integration/open-meteo.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

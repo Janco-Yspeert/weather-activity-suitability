@@ -24,15 +24,17 @@ describe("destination-local forecast dates", () => {
   });
 
   it("advances calendar dates across month and year boundaries", () => {
-    expect(getTargetDates(new Date("2026-12-31T12:00:00.000Z"), "UTC")).toEqual([
-      "2027-01-01",
-      "2027-01-02",
-      "2027-01-03",
-      "2027-01-04",
-      "2027-01-05",
-      "2027-01-06",
-      "2027-01-07",
-    ]);
+    expect(getTargetDates(new Date("2026-12-31T12:00:00.000Z"), "UTC")).toEqual(
+      [
+        "2027-01-01",
+        "2027-01-02",
+        "2027-01-03",
+        "2027-01-04",
+        "2027-01-05",
+        "2027-01-06",
+        "2027-01-07",
+      ],
+    );
   });
 });
 
@@ -46,10 +48,20 @@ describe("snapshot lifecycle policy", () => {
 
   it("requires actual coverage as well as age under three hours for normal reuse", () => {
     expect(
-      isFreshSnapshot(completeSnapshot, "3369157", requiredDates, new Date("2026-09-06T12:59:59.999Z")),
+      isFreshSnapshot(
+        completeSnapshot,
+        "3369157",
+        requiredDates,
+        new Date("2026-09-06T12:59:59.999Z"),
+      ),
     ).toBe(true);
     expect(
-      isFreshSnapshot(completeSnapshot, "3369157", requiredDates, new Date("2026-09-06T13:00:00.000Z")),
+      isFreshSnapshot(
+        completeSnapshot,
+        "3369157",
+        requiredDates,
+        new Date("2026-09-06T13:00:00.000Z"),
+      ),
     ).toBe(false);
     expect(
       isFreshSnapshot(
@@ -83,8 +95,12 @@ describe("snapshot lifecycle policy", () => {
   it("never reuses a snapshot for a different canonical location", () => {
     const now = new Date("2026-09-06T11:00:00.000Z");
 
-    expect(isFreshSnapshot(completeSnapshot, "other", requiredDates, now)).toBe(false);
-    expect(isStaleFallbackEligible(completeSnapshot, "other", requiredDates, now)).toBe(false);
+    expect(isFreshSnapshot(completeSnapshot, "other", requiredDates, now)).toBe(
+      false,
+    );
+    expect(
+      isStaleFallbackEligible(completeSnapshot, "other", requiredDates, now),
+    ).toBe(false);
   });
 
   it("derives coverage from actual returned local timestamps", () => {
@@ -95,5 +111,15 @@ describe("snapshot lifecycle policy", () => {
         "2026-09-09T00:00",
       ]),
     ).toEqual(new Set(["2026-09-07", "2026-09-09"]));
+  });
+
+  it("does not require exactly 24 hourly observations for a covered local date", () => {
+    const timestamps = Array.from(
+      { length: 23 },
+      (_, hour) =>
+        `2026-03-08T${String(hour < 2 ? hour : hour + 1).padStart(2, "0")}:00`,
+    );
+
+    expect(forecastCoverage(timestamps)).toEqual(new Set(["2026-03-08"]));
   });
 });

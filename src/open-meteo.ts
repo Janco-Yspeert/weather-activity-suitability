@@ -14,14 +14,23 @@ export interface ResolvedLocation {
 export type WeatherObservation = "airTemperature";
 export type MarineObservation = "waveHeight";
 
-export interface SourceForecast {
+export interface SourceForecast<Observation extends string = string> {
   localTimestamps: readonly string[];
-  observations: Readonly<Record<string, readonly (number | null)[]>>;
+  observations: Readonly<Record<Observation, readonly (number | null)[]>>;
 }
 
 type Fetcher = (url: string) => Promise<Response>;
 
-const POPULATED_PLACE_CODES = new Set(["PPL", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5", "PPLC", "PPLG"]);
+const POPULATED_PLACE_CODES = new Set([
+  "PPL",
+  "PPLA",
+  "PPLA2",
+  "PPLA3",
+  "PPLA4",
+  "PPLA5",
+  "PPLC",
+  "PPLG",
+]);
 const WEATHER_FIELDS: Record<WeatherObservation, string> = {
   airTemperature: "temperature_2m",
 };
@@ -29,7 +38,10 @@ const MARINE_FIELDS: Record<MarineObservation, string> = {
   waveHeight: "wave_height",
 };
 
-const timezoneSchema = z.string().min(1).refine(isValidTimezone, "Invalid IANA timezone");
+const timezoneSchema = z
+  .string()
+  .min(1)
+  .refine(isValidTimezone, "Invalid IANA timezone");
 const geocodingResultSchema = z.object({
   id: z.number().int(),
   name: z.string().min(1),
@@ -78,11 +90,22 @@ export class OpenMeteoClient {
 
   async resolveLocation(query: string): Promise<ResolvedLocation> {
     const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-    url.search = new URLSearchParams({ name: query, count: "10", language: "en", format: "json" }).toString();
+    url.search = new URLSearchParams({
+      name: query,
+      count: "10",
+      language: "en",
+      format: "json",
+    }).toString();
     const body = await this.requestJson(url);
-    const response = parseProviderResponse(geocodingResponseSchema, body, "geocoding response");
+    const response = parseProviderResponse(
+      geocodingResponseSchema,
+      body,
+      "geocoding response",
+    );
     const match = response.results?.find(
-      (result) => POPULATED_PLACE_CODES.has(result.feature_code) && qualifiersMatch(query, result),
+      (result) =>
+        POPULATED_PLACE_CODES.has(result.feature_code) &&
+        qualifiersMatch(query, result),
     );
 
     if (!match) throw new LocationNotFoundError(query);
@@ -92,15 +115,25 @@ export class OpenMeteoClient {
   async fetchWeather(
     location: ResolvedLocation,
     observations: readonly WeatherObservation[],
-  ): Promise<SourceForecast> {
-    return this.fetchSource("https://api.open-meteo.com/v1/forecast", location, observations, WEATHER_FIELDS);
+  ): Promise<SourceForecast<WeatherObservation>> {
+    return this.fetchSource(
+      "https://api.open-meteo.com/v1/forecast",
+      location,
+      observations,
+      WEATHER_FIELDS,
+    );
   }
 
   async fetchMarine(
     location: ResolvedLocation,
     observations: readonly MarineObservation[],
-  ): Promise<SourceForecast> {
-    return this.fetchSource("https://marine-api.open-meteo.com/v1/marine", location, observations, MARINE_FIELDS);
+  ): Promise<SourceForecast<MarineObservation>> {
+    return this.fetchSource(
+      "https://marine-api.open-meteo.com/v1/marine",
+      location,
+      observations,
+      MARINE_FIELDS,
+    );
   }
 
   private async fetchSource<Observation extends string>(
@@ -108,9 +141,12 @@ export class OpenMeteoClient {
     location: ResolvedLocation,
     observations: readonly Observation[],
     providerFields: Readonly<Record<Observation, string>>,
-  ): Promise<SourceForecast> {
-    if (observations.length === 0) throw new Error("At least one observation must be requested");
-    const requestedFields = observations.map((observation) => providerFields[observation]);
+  ): Promise<SourceForecast<Observation>> {
+    if (observations.length === 0)
+      throw new Error("At least one observation must be requested");
+    const requestedFields = observations.map(
+      (observation) => providerFields[observation],
+    );
     const url = new URL(endpoint);
     url.search = new URLSearchParams({
       latitude: String(location.latitude),
@@ -120,7 +156,12 @@ export class OpenMeteoClient {
       forecast_hours: "195",
     }).toString();
     const body = await this.requestJson(url);
-    return parseSourceResponse(body, location.timezone, observations, providerFields);
+    return parseSourceResponse(
+      body,
+      location.timezone,
+      observations,
+      providerFields,
+    );
   }
 
   private async requestJson(url: URL): Promise<unknown> {
@@ -132,13 +173,17 @@ export class OpenMeteoClient {
     }
 
     if (!response.ok) {
-      throw new ProviderRequestError(`Open-Meteo request failed with HTTP ${response.status}`);
+      throw new ProviderRequestError(
+        `Open-Meteo request failed with HTTP ${response.status}`,
+      );
     }
 
     try {
       return (await response.json()) as unknown;
     } catch (cause) {
-      throw new ProviderResponseError("Open-Meteo returned invalid JSON", { cause });
+      throw new ProviderResponseError("Open-Meteo returned invalid JSON", {
+        cause,
+      });
     }
   }
 }
@@ -150,16 +195,24 @@ function mapLocation(result: GeocodingResult): ResolvedLocation {
     latitude: result.latitude,
     longitude: result.longitude,
     timezone: result.timezone,
-    ...(result.country_code === undefined ? {} : { countryCode: result.country_code }),
+    ...(result.country_code === undefined
+      ? {}
+      : { countryCode: result.country_code }),
     ...(result.country === undefined ? {} : { country: result.country }),
     ...(result.admin1 === undefined ? {} : { admin1: result.admin1 }),
   };
 }
 
 function qualifiersMatch(query: string, result: GeocodingResult): boolean {
-  const qualifiers = query.split(",").slice(1).map(normalizeGeography).filter(Boolean);
+  const qualifiers = query
+    .split(",")
+    .slice(1)
+    .map(normalizeGeography)
+    .filter(Boolean);
   if (qualifiers.length === 0) return true;
 
+  // Open-Meteo owns base-name search relevance.
+  // Caller-supplied geographic qualifiers are independently enforced here.
   const providerGeography = [
     result.country_code,
     result.country,
@@ -189,7 +242,9 @@ function parseProviderResponse<Schema extends z.ZodType>(
 ): z.output<Schema> {
   const result = schema.safeParse(value);
   if (!result.success) {
-    throw new ProviderResponseError(`Malformed Open-Meteo ${label}`, { cause: result.error });
+    throw new ProviderResponseError(`Malformed Open-Meteo ${label}`, {
+      cause: result.error,
+    });
   }
   return result.data;
 }
@@ -199,8 +254,10 @@ function parseSourceResponse<Observation extends string>(
   expectedTimezone: string,
   requestedObservations: readonly Observation[],
   providerFields: Readonly<Record<Observation, string>>,
-): SourceForecast {
-  const requestedFields = requestedObservations.map((observation) => providerFields[observation]);
+): SourceForecast<Observation> {
+  const requestedFields = requestedObservations.map(
+    (observation) => providerFields[observation],
+  );
   const observationArraySchema = z.array(z.number().finite().nullable());
   const isValidTimestamp = createLocalTimestampValidator(expectedTimezone);
   const providerObservationSchemas = Object.fromEntries(
@@ -208,7 +265,11 @@ function parseSourceResponse<Observation extends string>(
   ) as Record<string, typeof observationArraySchema>;
   const hourlySchema = z
     .object({
-      time: z.array(z.string().refine(isValidTimestamp, "Invalid destination-local timestamp")),
+      time: z.array(
+        z
+          .string()
+          .refine(isValidTimestamp, "Invalid destination-local timestamp"),
+      ),
       ...providerObservationSchemas,
     })
     .superRefine((hourly, context) => {
@@ -228,13 +289,23 @@ function parseSourceResponse<Observation extends string>(
     timezone: z.literal(expectedTimezone),
     hourly: hourlySchema,
   });
-  const response = parseProviderResponse(sourceResponseSchema, value, "forecast response");
-  const hourly = response.hourly as Record<string, unknown> & { time: string[] };
-  const observations: Record<string, readonly (number | null)[]> = {};
+  const response = parseProviderResponse(
+    sourceResponseSchema,
+    value,
+    "forecast response",
+  );
+  const hourly = response.hourly as Record<string, unknown> & {
+    time: string[];
+  };
+  const observations = {} as Record<Observation, readonly (number | null)[]>;
 
   for (const observation of requestedObservations) {
-    observations[observation] = hourly[providerFields[observation]] as (number | null)[];
+    observations[observation] = hourly[providerFields[observation]] as (
+      | number
+      | null
+    )[];
   }
+
   return { localTimestamps: hourly.time, observations };
 }
 
@@ -247,7 +318,9 @@ function isValidTimezone(value: string): boolean {
   }
 }
 
-function createLocalTimestampValidator(timeZone: string): (value: string) => boolean {
+function createLocalTimestampValidator(
+  timeZone: string,
+): (value: string) => boolean {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -282,7 +355,9 @@ function createLocalTimestampValidator(timeZone: string): (value: string) => boo
     let candidate = localAsUtc;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const parts = Object.fromEntries(
-        formatter.formatToParts(new Date(candidate)).map(({ type, value: partValue }) => [type, partValue]),
+        formatter
+          .formatToParts(new Date(candidate))
+          .map(({ type, value: partValue }) => [type, partValue]),
       );
       const representedLocal = Date.UTC(
         Number(parts.year),

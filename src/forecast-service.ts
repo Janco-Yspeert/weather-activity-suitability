@@ -7,22 +7,32 @@ import type {
   WeatherObservation,
 } from "./open-meteo.js";
 
-const REQUIRED_WEATHER_OBSERVATIONS = ["airTemperature"] as const satisfies readonly WeatherObservation[];
-const REQUIRED_MARINE_OBSERVATIONS = ["waveHeight"] as const satisfies readonly MarineObservation[];
+const REQUIRED_WEATHER_OBSERVATIONS = [
+  "airTemperature",
+] as const satisfies readonly WeatherObservation[];
+const REQUIRED_MARINE_OBSERVATIONS = [
+  "waveHeight",
+] as const satisfies readonly MarineObservation[];
 
 export interface ForecastProvider {
   resolveLocation(query: string): Promise<ResolvedLocation>;
   fetchWeather(
     location: ResolvedLocation,
     observations: readonly WeatherObservation[],
-  ): Promise<SourceForecast>;
+  ): Promise<SourceForecast<WeatherObservation>>;
   fetchMarine(
     location: ResolvedLocation,
     observations: readonly MarineObservation[],
-  ): Promise<SourceForecast>;
+  ): Promise<SourceForecast<MarineObservation>>;
 }
 
-export type ActivityRating = "UNKNOWN" | "UNSUITABLE" | "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+export type ActivityRating =
+  | "UNKNOWN"
+  | "UNSUITABLE"
+  | "POOR"
+  | "FAIR"
+  | "GOOD"
+  | "EXCELLENT";
 export type SourceState = "AVAILABLE" | "PARTIAL" | "NO_DATA" | "UNAVAILABLE";
 
 export interface SourceAvailability {
@@ -49,7 +59,10 @@ interface FetchedSources {
 }
 
 export class ForecastService {
-  private readonly inFlightForecasts = new Map<string, Promise<FetchedSources>>();
+  private readonly inFlightForecasts = new Map<
+    string,
+    Promise<FetchedSources>
+  >();
 
   constructor(
     private readonly provider: ForecastProvider,
@@ -58,7 +71,8 @@ export class ForecastService {
 
   async assess(query: string): Promise<ForecastAssessment> {
     const normalizedQuery = query.trim();
-    if (normalizedQuery.length === 0) throw new Error("Location must not be empty");
+    if (normalizedQuery.length === 0)
+      throw new Error("Location must not be empty");
 
     const location = await this.provider.resolveLocation(normalizedQuery);
     const dates = getTargetDates(this.clock(), location.timezone);
@@ -94,16 +108,24 @@ export class ForecastService {
     }
   }
 
-  private async fetchSources(location: ResolvedLocation): Promise<FetchedSources> {
+  private async fetchSources(
+    location: ResolvedLocation,
+  ): Promise<FetchedSources> {
     const [weather, marine] = await Promise.all([
-      asSourceOutcome(this.provider.fetchWeather(location, REQUIRED_WEATHER_OBSERVATIONS)),
-      asSourceOutcome(this.provider.fetchMarine(location, REQUIRED_MARINE_OBSERVATIONS)),
+      asSourceOutcome(
+        this.provider.fetchWeather(location, REQUIRED_WEATHER_OBSERVATIONS),
+      ),
+      asSourceOutcome(
+        this.provider.fetchMarine(location, REQUIRED_MARINE_OBSERVATIONS),
+      ),
     ]);
     return { weather, marine };
   }
 }
 
-async function asSourceOutcome(request: Promise<SourceForecast>): Promise<SourceForecast | null> {
+async function asSourceOutcome(
+  request: Promise<SourceForecast>,
+): Promise<SourceForecast | null> {
   try {
     return await request;
   } catch (error) {
@@ -127,6 +149,10 @@ function describeAvailability(
   });
   const coveredDates = targetDates.filter((date) => usableDates.has(date));
   const state: SourceState =
-    coveredDates.length === targetDates.length ? "AVAILABLE" : coveredDates.length > 0 ? "PARTIAL" : "NO_DATA";
+    coveredDates.length === targetDates.length
+      ? "AVAILABLE"
+      : coveredDates.length > 0
+        ? "PARTIAL"
+        : "NO_DATA";
   return { state, coveredDates };
 }
