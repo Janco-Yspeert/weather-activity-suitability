@@ -1,6 +1,7 @@
 export type LocalDate = `${number}-${number}-${number}`;
 
 export interface SnapshotMetadata {
+  locationId: string;
   fetchedAt: Date;
   coveredDates: ReadonlySet<string>;
 }
@@ -39,18 +40,30 @@ function ageAt(snapshot: SnapshotMetadata, now: Date): number {
 
 export function isFreshSnapshot(
   snapshot: SnapshotMetadata,
+  locationId: string,
   requiredDates: readonly string[],
   now: Date,
 ): boolean {
   const age = ageAt(snapshot, now);
-  return age >= 0 && age < FRESH_MILLISECONDS && hasCoverage(snapshot, requiredDates);
+  return (
+    snapshot.locationId === locationId &&
+    age >= 0 &&
+    age < FRESH_MILLISECONDS &&
+    hasCoverage(snapshot, requiredDates)
+  );
 }
 
 export function isStaleFallbackEligible(
   snapshot: SnapshotMetadata,
+  locationId: string,
   requiredDates: readonly string[],
   now: Date,
 ): boolean {
   const age = ageAt(snapshot, now);
-  return age >= 0 && age <= STALE_FALLBACK_MILLISECONDS && hasCoverage(snapshot, requiredDates);
+  return (
+    snapshot.locationId === locationId &&
+    age >= 0 &&
+    age <= STALE_FALLBACK_MILLISECONDS &&
+    hasCoverage(snapshot, requiredDates)
+  );
 }

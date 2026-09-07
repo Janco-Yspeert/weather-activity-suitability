@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { ForecastService, type ForecastProvider } from "../src/forecast-service.js";
-import { ProviderResponseError, type ResolvedLocation, type SourceForecast } from "../src/open-meteo.js";
+import {
+  ProviderRequestError,
+  ProviderResponseError,
+  type ResolvedLocation,
+  type SourceForecast,
+} from "../src/open-meteo.js";
 
 const capeTown: ResolvedLocation = {
   id: "3369157",
@@ -153,11 +158,11 @@ describe("ForecastService", () => {
   it("releases a degraded in-flight refresh so the next request retries both sources", async () => {
     const fetchWeather = vi
       .fn<ForecastProvider["fetchWeather"]>()
-      .mockRejectedValueOnce(new Error("weather failed"))
+      .mockRejectedValueOnce(new ProviderRequestError("weather failed"))
       .mockResolvedValueOnce(sourceForecast("airTemperature"));
     const fetchMarine = vi
       .fn<ForecastProvider["fetchMarine"]>()
-      .mockRejectedValueOnce(new Error("marine failed"))
+      .mockRejectedValueOnce(new ProviderRequestError("marine failed"))
       .mockResolvedValueOnce(sourceForecast("waveHeight"));
     const provider: ForecastProvider = {
       resolveLocation: vi.fn(async () => capeTown),
@@ -175,5 +180,18 @@ describe("ForecastService", () => {
     expect(retried.metadata.marine.state).toBe("AVAILABLE");
     expect(fetchWeather).toHaveBeenCalledTimes(2);
     expect(fetchMarine).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not disguise unexpected programming errors as source unavailability", async () => {
+    const provider: ForecastProvider = {
+      resolveLocation: vi.fn(async () => capeTown),
+      fetchWeather: vi.fn(async () => {
+        throw new TypeError("implementation bug");
+      }),
+      fetchMarine: vi.fn(async () => sourceForecast("waveHeight")),
+    };
+    const service = new ForecastService(provider, () => new Date("2026-09-06T10:00:00.000Z"));
+
+    await expect(service.assess("Cape Town")).rejects.toThrow("implementation bug");
   });
 });

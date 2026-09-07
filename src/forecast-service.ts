@@ -1,4 +1,5 @@
 import { getTargetDates, type LocalDate } from "./forecast-policy.js";
+import { ProviderError } from "./open-meteo.js";
 import type {
   MarineObservation,
   ResolvedLocation,
@@ -105,8 +106,9 @@ export class ForecastService {
 async function asSourceOutcome(request: Promise<SourceForecast>): Promise<SourceForecast | null> {
   try {
     return await request;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ProviderError) return null;
+    throw error;
   }
 }
 

@@ -39,16 +39,22 @@ describe("destination-local forecast dates", () => {
 describe("snapshot lifecycle policy", () => {
   const requiredDates = ["2026-09-07", "2026-09-08"];
   const completeSnapshot = {
+    locationId: "3369157",
     fetchedAt: new Date("2026-09-06T10:00:00.000Z"),
     coveredDates: new Set(["2026-09-07", "2026-09-08"]),
   };
 
   it("requires actual coverage as well as age under three hours for normal reuse", () => {
-    expect(isFreshSnapshot(completeSnapshot, requiredDates, new Date("2026-09-06T12:59:59.999Z"))).toBe(true);
-    expect(isFreshSnapshot(completeSnapshot, requiredDates, new Date("2026-09-06T13:00:00.000Z"))).toBe(false);
+    expect(
+      isFreshSnapshot(completeSnapshot, "3369157", requiredDates, new Date("2026-09-06T12:59:59.999Z")),
+    ).toBe(true);
+    expect(
+      isFreshSnapshot(completeSnapshot, "3369157", requiredDates, new Date("2026-09-06T13:00:00.000Z")),
+    ).toBe(false);
     expect(
       isFreshSnapshot(
         { ...completeSnapshot, coveredDates: new Set(["2026-09-07"]) },
+        "3369157",
         requiredDates,
         new Date("2026-09-06T11:00:00.000Z"),
       ),
@@ -57,11 +63,28 @@ describe("snapshot lifecycle policy", () => {
 
   it("permits refresh-failure fallback through 24 hours, with sufficient coverage", () => {
     expect(
-      isStaleFallbackEligible(completeSnapshot, requiredDates, new Date("2026-09-07T10:00:00.000Z")),
+      isStaleFallbackEligible(
+        completeSnapshot,
+        "3369157",
+        requiredDates,
+        new Date("2026-09-07T10:00:00.000Z"),
+      ),
     ).toBe(true);
     expect(
-      isStaleFallbackEligible(completeSnapshot, requiredDates, new Date("2026-09-07T10:00:00.001Z")),
+      isStaleFallbackEligible(
+        completeSnapshot,
+        "3369157",
+        requiredDates,
+        new Date("2026-09-07T10:00:00.001Z"),
+      ),
     ).toBe(false);
+  });
+
+  it("never reuses a snapshot for a different canonical location", () => {
+    const now = new Date("2026-09-06T11:00:00.000Z");
+
+    expect(isFreshSnapshot(completeSnapshot, "other", requiredDates, now)).toBe(false);
+    expect(isStaleFallbackEligible(completeSnapshot, "other", requiredDates, now)).toBe(false);
   });
 
   it("derives coverage from actual returned local timestamps", () => {

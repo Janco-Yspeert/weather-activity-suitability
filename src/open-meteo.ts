@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface ResolvedLocation {
   id: string;
   name: string;
@@ -20,7 +22,6 @@ export interface SourceForecast {
 type Fetcher = (url: string) => Promise<Response>;
 
 const POPULATED_PLACE_CODES = new Set(["PPL", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5", "PPLC", "PPLG"]);
-const LOCAL_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const WEATHER_FIELDS: Record<WeatherObservation, string> = {
   airTemperature: "temperature_2m",
 };
@@ -28,9 +29,39 @@ const MARINE_FIELDS: Record<MarineObservation, string> = {
   waveHeight: "wave_height",
 };
 
-export class ProviderResponseError extends Error {
-  constructor(message: string) {
-    super(message);
+const timezoneSchema = z.string().min(1).refine(isValidTimezone, "Invalid IANA timezone");
+const geocodingResultSchema = z.object({
+  id: z.number().int(),
+  name: z.string().min(1),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  timezone: timezoneSchema,
+  feature_code: z.string().min(1),
+  country_code: z.string().optional(),
+  country: z.string().optional(),
+  admin1: z.string().optional(),
+  admin2: z.string().optional(),
+  admin3: z.string().optional(),
+  admin4: z.string().optional(),
+});
+const geocodingResponseSchema = z.object({
+  results: z.array(geocodingResultSchema).optional(),
+});
+
+type GeocodingResult = z.infer<typeof geocodingResultSchema>;
+
+export class ProviderError extends Error {}
+
+export class ProviderRequestError extends ProviderError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "ProviderRequestError";
+  }
+}
+
+export class ProviderResponseError extends ProviderError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ProviderResponseError";
   }
 }
@@ -49,21 +80,13 @@ export class OpenMeteoClient {
     const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
     url.search = new URLSearchParams({ name: query, count: "10", language: "en", format: "json" }).toString();
     const body = await this.requestJson(url);
-    const results = parseGeocodingResponse(body);
-    const match = results.find((result) => POPULATED_PLACE_CODES.has(result.featureCode));
+    const response = parseProviderResponse(geocodingResponseSchema, body, "geocoding response");
+    const match = response.results?.find(
+      (result) => POPULATED_PLACE_CODES.has(result.feature_code) && qualifiersMatch(query, result),
+    );
 
     if (!match) throw new LocationNotFoundError(query);
-
-    return {
-      id: String(match.id),
-      name: match.name,
-      latitude: match.latitude,
-      longitude: match.longitude,
-      timezone: match.timezone,
-      ...(match.countryCode === undefined ? {} : { countryCode: match.countryCode }),
-      ...(match.country === undefined ? {} : { country: match.country }),
-      ...(match.admin1 === undefined ? {} : { admin1: match.admin1 }),
-    };
+    return mapLocation(match);
   }
 
   async fetchWeather(
@@ -101,97 +124,74 @@ export class OpenMeteoClient {
   }
 
   private async requestJson(url: URL): Promise<unknown> {
-    const response = await this.fetcher(url.toString());
+    let response: Response;
+    try {
+      response = await this.fetcher(url.toString());
+    } catch (cause) {
+      throw new ProviderRequestError("Open-Meteo request failed", { cause });
+    }
+
     if (!response.ok) {
-      throw new ProviderResponseError(`Open-Meteo request failed with HTTP ${response.status}`);
+      throw new ProviderRequestError(`Open-Meteo request failed with HTTP ${response.status}`);
     }
 
     try {
       return (await response.json()) as unknown;
-    } catch {
-      throw new ProviderResponseError("Open-Meteo returned invalid JSON");
+    } catch (cause) {
+      throw new ProviderResponseError("Open-Meteo returned invalid JSON", { cause });
     }
   }
 }
 
-interface GeocodingResult {
-  id: number;
-  name: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  featureCode: string;
-  countryCode?: string;
-  country?: string;
-  admin1?: string;
+function mapLocation(result: GeocodingResult): ResolvedLocation {
+  return {
+    id: String(result.id),
+    name: result.name,
+    latitude: result.latitude,
+    longitude: result.longitude,
+    timezone: result.timezone,
+    ...(result.country_code === undefined ? {} : { countryCode: result.country_code }),
+    ...(result.country === undefined ? {} : { country: result.country }),
+    ...(result.admin1 === undefined ? {} : { admin1: result.admin1 }),
+  };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function qualifiersMatch(query: string, result: GeocodingResult): boolean {
+  const qualifiers = query.split(",").slice(1).map(normalizeGeography).filter(Boolean);
+  if (qualifiers.length === 0) return true;
+
+  const providerGeography = [
+    result.country_code,
+    result.country,
+    result.admin1,
+    result.admin2,
+    result.admin3,
+    result.admin4,
+  ]
+    .filter((value): value is string => value !== undefined)
+    .map(normalizeGeography);
+  return qualifiers.every((qualifier) => providerGeography.includes(qualifier));
 }
 
-function requiredString(record: Record<string, unknown>, key: string): string {
-  const value = record[key];
-  if (typeof value !== "string" || value.length === 0) throw malformed(key);
-  return value;
+function normalizeGeography(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
+    .trim()
+    .toLocaleLowerCase("en");
 }
 
-function optionalString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== "string") throw malformed(key);
-  return value;
-}
-
-function requiredNumber(record: Record<string, unknown>, key: string): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) throw malformed(key);
-  return value;
-}
-
-function requiredCoordinate(record: Record<string, unknown>, key: "latitude" | "longitude"): number {
-  const value = requiredNumber(record, key);
-  const limit = key === "latitude" ? 90 : 180;
-  if (value < -limit || value > limit) throw malformed(key);
-  return value;
-}
-
-function requiredTimezone(record: Record<string, unknown>, key: string): string {
-  const value = requiredString(record, key);
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: value });
-  } catch {
-    throw malformed(key);
+function parseProviderResponse<Schema extends z.ZodType>(
+  schema: Schema,
+  value: unknown,
+  label: string,
+): z.output<Schema> {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new ProviderResponseError(`Malformed Open-Meteo ${label}`, { cause: result.error });
   }
-  return value;
-}
-
-function malformed(field: string): ProviderResponseError {
-  return new ProviderResponseError(`Malformed Open-Meteo response at ${field}`);
-}
-
-function parseGeocodingResponse(value: unknown): GeocodingResult[] {
-  if (!isRecord(value)) throw malformed("geocoding response");
-  if (value.results === undefined) return [];
-  if (!Array.isArray(value.results)) throw malformed("results");
-
-  return value.results.map((item, index) => {
-    if (!isRecord(item)) throw malformed(`results[${index}]`);
-    const countryCode = optionalString(item, "country_code");
-    const country = optionalString(item, "country");
-    const admin1 = optionalString(item, "admin1");
-    return {
-      id: requiredNumber(item, "id"),
-      name: requiredString(item, "name"),
-      latitude: requiredCoordinate(item, "latitude"),
-      longitude: requiredCoordinate(item, "longitude"),
-      timezone: requiredTimezone(item, "timezone"),
-      featureCode: requiredString(item, "feature_code"),
-      ...(countryCode === undefined ? {} : { countryCode }),
-      ...(country === undefined ? {} : { country }),
-      ...(admin1 === undefined ? {} : { admin1 }),
-    };
-  });
+  return result.data;
 }
 
 function parseSourceResponse<Observation extends string>(
@@ -200,28 +200,101 @@ function parseSourceResponse<Observation extends string>(
   requestedObservations: readonly Observation[],
   providerFields: Readonly<Record<Observation, string>>,
 ): SourceForecast {
-  if (!isRecord(value)) throw malformed("forecast response");
-  if (requiredTimezone(value, "timezone") !== expectedTimezone) throw malformed("timezone");
-  if (!isRecord(value.hourly)) throw malformed("hourly");
-
-  const times = value.hourly.time;
-  if (!Array.isArray(times) || !times.every((time) => typeof time === "string" && LOCAL_TIMESTAMP.test(time))) {
-    throw malformed("hourly.time");
-  }
-
+  const requestedFields = requestedObservations.map((observation) => providerFields[observation]);
+  const observationArraySchema = z.array(z.number().finite().nullable());
+  const isValidTimestamp = createLocalTimestampValidator(expectedTimezone);
+  const providerObservationSchemas = Object.fromEntries(
+    requestedFields.map((field) => [field, observationArraySchema]),
+  ) as Record<string, typeof observationArraySchema>;
+  const hourlySchema = z
+    .object({
+      time: z.array(z.string().refine(isValidTimestamp, "Invalid destination-local timestamp")),
+      ...providerObservationSchemas,
+    })
+    .superRefine((hourly, context) => {
+      const fields = hourly as Record<string, unknown> & { time: string[] };
+      for (const field of requestedFields) {
+        const values = fields[field];
+        if (Array.isArray(values) && values.length !== hourly.time.length) {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: "Observation and timestamp arrays must be aligned",
+          });
+        }
+      }
+    });
+  const sourceResponseSchema = z.object({
+    timezone: z.literal(expectedTimezone),
+    hourly: hourlySchema,
+  });
+  const response = parseProviderResponse(sourceResponseSchema, value, "forecast response");
+  const hourly = response.hourly as Record<string, unknown> & { time: string[] };
   const observations: Record<string, readonly (number | null)[]> = {};
-  for (const observation of requestedObservations) {
-    const providerField = providerFields[observation];
-    const values = value.hourly[providerField];
-    if (
-      !Array.isArray(values) ||
-      !values.every((item) => item === null || (typeof item === "number" && Number.isFinite(item))) ||
-      values.length !== times.length
-    ) {
-      throw malformed(`hourly.${providerField}`);
-    }
-    observations[observation] = values;
-  }
 
-  return { localTimestamps: times, observations };
+  for (const observation of requestedObservations) {
+    observations[observation] = hourly[providerFields[observation]] as (number | null)[];
+  }
+  return { localTimestamps: hourly.time, observations };
+}
+
+function isValidTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createLocalTimestampValidator(timeZone: string): (value: string) => boolean {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+
+  return (value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+    if (!match) return false;
+    const [, yearText, monthText, dayText, hourText, minuteText] = match;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    const localAsUtc = Date.UTC(year, month - 1, day, hour, minute);
+    const normalized = new Date(localAsUtc);
+    if (
+      normalized.getUTCFullYear() !== year ||
+      normalized.getUTCMonth() !== month - 1 ||
+      normalized.getUTCDate() !== day ||
+      normalized.getUTCHours() !== hour ||
+      normalized.getUTCMinutes() !== minute
+    ) {
+      return false;
+    }
+
+    let candidate = localAsUtc;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const parts = Object.fromEntries(
+        formatter.formatToParts(new Date(candidate)).map(({ type, value: partValue }) => [type, partValue]),
+      );
+      const representedLocal = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+      );
+      const correction = localAsUtc - representedLocal;
+      if (correction === 0) return true;
+      candidate += correction;
+    }
+    return false;
+  };
 }
