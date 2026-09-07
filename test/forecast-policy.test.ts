@@ -113,11 +113,21 @@ describe("snapshot lifecycle policy", () => {
     ).toEqual(new Set(["2026-09-07", "2026-09-09"]));
   });
 
-  it("does not require exactly 24 hourly observations for a covered local date", () => {
+  it("does not require exactly 24 hourly observations for a covered local date - can deal with 23", () => {
     const timestamps = Array.from(
       { length: 23 },
       (_, hour) =>
         `2026-03-08T${String(hour < 2 ? hour : hour + 1).padStart(2, "0")}:00`,
+    );
+
+    expect(forecastCoverage(timestamps)).toEqual(new Set(["2026-03-08"]));
+  });
+
+  it("does not require exactly 24 hourly observations for a covered local date - can deal with 25", () => {
+    const timestamps = Array.from(
+      { length: 25 },
+      (_, hour) =>
+        `2026-03-08T${String(hour < 2 ? hour : hour - 1).padStart(2, "0")}:00`,
     );
 
     expect(forecastCoverage(timestamps)).toEqual(new Set(["2026-03-08"]));

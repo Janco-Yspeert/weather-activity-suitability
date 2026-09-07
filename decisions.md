@@ -262,3 +262,7 @@ Those should be settled when there is enough product information to make them re
 Spike 1 defines and tests the forecast lifecycle rules as application contracts, but does not implement request-time snapshot reuse or stale fallback. Those behaviours are implemented when durable persistence is introduced.
 
 The observations requested from Open-Meteo are selected by application requirements and translated to provider-specific field names at the adapter boundary. Spike 1 uses a minimal representative observation set; Spike 2 defines the final set from the activity methodology.
+
+Open-Meteo gives us enough to recognize high wind, blizzard-like conditions, heavy freezing rain, thunderstorms, extreme temperature and very poor visibility, but not enough to infer tornadoes, flash flooding or official civil warnings reliably. Those should not be invented from rainfall totals.
+
+If conditions are severe enough that discretionary travel should be avoided, every activity is UNSUITABLE, regardless of the activity-specific weather score.

@@ -54,8 +54,8 @@ export interface ForecastAssessment {
 }
 
 interface FetchedSources {
-  weather: SourceForecast | null;
-  marine: SourceForecast | null;
+  weather: SourceForecast<WeatherObservation> | null;
+  marine: SourceForecast<MarineObservation> | null;
 }
 
 export class ForecastService {
@@ -123,9 +123,9 @@ export class ForecastService {
   }
 }
 
-async function asSourceOutcome(
-  request: Promise<SourceForecast>,
-): Promise<SourceForecast | null> {
+async function asSourceOutcome<Observation extends string>(
+  request: Promise<SourceForecast<Observation>>,
+): Promise<SourceForecast<Observation> | null> {
   try {
     return await request;
   } catch (error) {
