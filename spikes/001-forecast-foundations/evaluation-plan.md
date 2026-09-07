@@ -24,6 +24,15 @@ Verification will run the eventual candidate's documented checks, inspect its
 schema and boundary contracts, and construct bounded probes from the procedures
 below where its ordinary composition seam permits.
 
+**Correction note (verification):** `EVAL-003-E` originally required varying
+the selected observation and observing a different provider request. The
+contract requires application-owned selection and adapter-owned translation,
+but it does not require a second supported observation or a dynamically
+configurable selection seam. The procedure now verifies ownership and
+translation using the representative observations the application actually
+selects. Acceptance semantics are unchanged; an evaluator-imposed extensibility
+requirement was removed.
+
 ## Criteria and procedures
 
 ### EVAL-001 — Canonical city or town resolution
@@ -115,6 +124,14 @@ inspection.
   validation to precede mapping, and provider DTO/raw JSON not to serve as the
   application model. Expect weather and marine acquisition outcomes to remain
   distinguishable after mapping.
+- **EVAL-003-E:** Inspect and probe observation selection at the application-to-
+  provider boundary. Expect the application to select its representative
+  weather and marine observations and the Open-Meteo adapter to translate those
+  application-owned names into provider request fields. Invoke each adapter
+  with the application-selected representative observation and expect its
+  provider request to contain the corresponding translated field; no second
+  supported observation, dynamic configuration seam, particular names, or
+  final activity data set are required.
 
 Wrong-type, missing-field, and nullability probes test runtime behavior rather
 than merely the presence of TypeScript declarations, without mandating a
@@ -184,7 +201,8 @@ one semantic result with response metadata, the resolved location, exactly
 seven target dates, and date-aligned outcomes for skiing, surfing, outdoor
 sightseeing, and indoor sightseeing. Metadata independently exposes weather
 and marine state plus covered target dates. Every outcome in this spike is the
-enum value `UNKNOWN`; availability is not smuggled into the rating placeholder.
+enum value `UNKNOWN`; `NO_DATA` is source evidence and is not smuggled into the
+rating placeholder as `UNSUITABLE`.
 
 **Evidence mode.** GraphQL schema inspection/introspection and automated
 black-box execution against controlled successful provider responses.
@@ -193,26 +211,28 @@ black-box execution against controlled successful provider responses.
   city/town string and exposing semantic fields for metadata, resolved
   location, dates, and all four named activities. Expect metadata to expose
   distinct weather and marine records, each with a source state supporting
-  `AVAILABLE`, `PARTIAL`, and `UNAVAILABLE`, and a sequence of covered dates.
-  Expect the public rating vocabulary to include `UNKNOWN`; exact SDL names and
-  nesting are free.
+  `AVAILABLE`, `PARTIAL`, `NO_DATA`, and `UNAVAILABLE`, and a sequence of
+  covered dates. Expect the public rating vocabulary to include `UNKNOWN`;
+  exact SDL names and nesting are free.
 - **EVAL-006-B:** Execute a successful query. Expect one result, the provider-
   resolved location, seven chronological target dates, and seven outcomes for
   each of the four activities. Expect every outcome to be `UNKNOWN`, aligned by
   index with the dates.
-- **EVAL-006-C:** For each source separately, provide usable coverage containing
-  all seven target dates, then a non-empty proper subset, then no target dates.
-  Expect respectively `AVAILABLE`, `PARTIAL`, and `UNAVAILABLE`. In every case,
-  expect reported covered dates to equal that source's usable coverage
-  intersected with the target window—no duplicates, extra dates, or dates
-  borrowed from the other source.
+- **EVAL-006-C:** For each source separately, provide a successfully validated
+  response with usable coverage containing all seven target dates, then a
+  non-empty proper subset, then no usable non-null requested observation on any
+  target date. Expect respectively `AVAILABLE`, `PARTIAL`, and `NO_DATA`. In
+  every case, expect reported covered dates to equal that source's usable
+  coverage intersected with the target window—no duplicates, extra dates, or
+  dates borrowed from the other source; `NO_DATA` must report an empty list.
 - **EVAL-006-D:** Provide fully usable weather and make marine acquisition
   reject or fail boundary validation. Expect a successful GraphQL result with
   weather `AVAILABLE`, marine `UNAVAILABLE`, and no marine covered dates.
   Repeat with partial marine coverage and expect weather `AVAILABLE`, marine
   `PARTIAL`, and exactly the covered marine target dates.
-- **EVAL-006-E:** Across full, partial, and unavailable source combinations,
-  expect every activity outcome to remain `UNKNOWN`. Do not require
+- **EVAL-006-E:** Across available, partial, no-data, and unavailable source
+  combinations, expect every activity outcome to remain `UNKNOWN`. In
+  particular, `NO_DATA` must not produce `UNSUITABLE`. Do not require
   activity-specific degradation semantics, which are deferred.
 
 Schema semantics and result cardinality are observable without freezing names,
@@ -266,14 +286,14 @@ persistence/reuse/fallback is not required for acceptance.
 
 - **EVAL-008-A:** Run `npm test`. Expect exit status 0. Inspect relevant tests
   for semantic evidence of both provider boundaries, nullability, date
-  boundaries, independent source-state classification, lifecycle thresholds,
-  and concurrent cleanup rather than accepting a green suite as
-  self-authenticating.
+  boundaries, independent four-state source classification, application-owned
+  observation translation, lifecycle thresholds, and concurrent cleanup rather
+  than accepting a green suite as self-authenticating.
 - **EVAL-008-B:** Run `npm run typecheck`. Expect exit status 0.
 - **EVAL-008-C:** Inspect the public result behavior and implementation report.
   Expect `UNKNOWN` to be identified as a foundation placeholder. Do not fail the
   candidate for lacking durable storage, request-time snapshot reuse, stale
-  fallback delivery, final weather/marine observation selection, or activity
+  fallback delivery, the final activity observation set, or activity
   heuristics, all of which are outside this spike.
 
 These checks establish repository fitness and guard against accidental scope

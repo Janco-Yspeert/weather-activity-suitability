@@ -51,7 +51,18 @@ The minimum source states for this spike are:
 
 - `AVAILABLE` — usable data is available for the source;
 - `PARTIAL` — usable data is available for only part of the requested window;
+- `NO_DATA` — the source request and validation succeeded, but no requested
+  target-date observation contained a usable non-null value.
 - `UNAVAILABLE` — the source could not provide usable data.
+
+`coveredDates` contains target dates for which the source supplied at least one
+usable requested observation.
+
+For `NO_DATA` and `UNAVAILABLE`, `coveredDates` is empty.
+
+`NO_DATA` is a statement about provider data availability only. It does not
+imply that any activity is `UNSUITABLE`; activity-level interpretation is
+deferred to the activity methodology.
 
 A marine failure must not invalidate otherwise usable weather data.
 

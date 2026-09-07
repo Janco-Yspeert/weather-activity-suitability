@@ -2,25 +2,15 @@
 
 ## Verdict
 
-The revised brief is ready to govern independent implementation and evaluation
-of the bounded forecast foundation.
+The revised brief is ready to govern independent design, implementation, and evaluation of the bounded forecast foundation.
 
 ## Source and inherited-contract coverage
 
-- The source assignment requires a Node.js GraphQL service using Open-Meteo to
-  assess the next seven days. This spike deliberately defers final activity
-  methodology while retaining seven aligned `UNKNOWN` placeholders; it does not
-  present those placeholders as completion of the assignment.
-- The inherited product contract requires destination-local dates, canonical
-  provider-backed locations, actual rather than requested coverage, provider
-  boundary validation, bounded freshness policy, and in-process refresh
-  coalescing. The spike preserves these contracts and explicitly defers durable
-  request-path persistence and activity-specific data rules.
-- The parent contract also requires independent weather and marine degradation
-  to be visible. The new source-availability section supplies the previously
-  missing public contract: both sources expose `AVAILABLE`, `PARTIAL`, or
-  `UNAVAILABLE` state and their actual destination-local covered dates. It also
-  explicitly preserves usable weather results when marine data fails.
+- The source assignment's Node.js, GraphQL, Open-Meteo, seven-day, and activity-assessment requirements remain represented as a deliberately bounded foundation: it returns aligned `UNKNOWN` placeholders and does not claim that activity ranking is complete.
+- The inherited contract for canonical city/town resolution, destination-local target dates, actual coverage, runtime provider-boundary validation, storage-independent lifecycle policy, and in-process coalescing remains unchanged.
+- The revision makes source availability more precise without changing the deferred activity methodology: ordinary weather and marine are independently observed; each exposes coverage of the requested target window; and marine failure cannot invalidate usable weather.
+- `NO_DATA` is now an independently evaluable, non-scoring state: a response and validation succeeded but no requested target-date observation is usable. It is distinct from `UNAVAILABLE`, whose source could not provide usable data, and it cannot be interpreted as `UNSUITABLE`.
+- The application-selected-observation requirement preserves the decision that provider field names stay at the adapter boundary and that Spike 001's representative observations do not become the final activity data model.
 
 ## Material findings
 
@@ -28,22 +18,12 @@ No blockers or material clarifications were identified.
 
 ## Strengths relevant to readiness
 
-- The two provider boundaries are introduced without prematurely choosing the
-  final observations or activity methodology.
-- Source availability and coverage are observable independently, making a
-  successful-but-degraded response evaluable rather than silently magical.
-- Lifecycle policy remains storage-independent and has a clear boundary from
-  deferred request-time snapshot reuse and stale fallback.
-- The scope continues to distinguish inherited behavior, this spike's new
-  marine-boundary extension, and explicitly deferred concerns.
+- The revised source-state vocabulary distinguishes empty-but-valid provider evidence from a failed or unusable source, avoiding an otherwise misleading conflation in public metadata.
+- `coveredDates` has an explicit target-window and non-null-observation rule, including empty coverage for `NO_DATA` and `UNAVAILABLE`.
+- The brief continues to distinguish inherited behaviour, the added two-source boundary, and deferred persistence, scoring, and final observation selection.
 
-## Review limitations and evidence inspected
+## Review limitations and repository evidence inspected
 
-Reviewed `spikes/001-forecast-foundations/brief.md`, the supplied
-`source-brief.md`, inherited `brief.md`, `decisions.md`, repository
-instructions, and the current public/provider/service interfaces. The existing
-implementation was inspected only as repository-contract evidence. Design maps,
-evaluation artifacts, implementation reports, and as-built artifacts were not
-consulted.
+Reviewed `spikes/001-forecast-foundations/brief.md`, `source-brief.md`, inherited `brief.md`, `decisions.md`, `AGENTS.md`, current public/provider/service interfaces and their focused tests, and package/TypeScript configuration. Design maps, evaluator artifacts, implementation reports, and as-built artifacts were not consulted.
 
 READY

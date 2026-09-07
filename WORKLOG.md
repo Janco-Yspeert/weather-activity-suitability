@@ -39,3 +39,11 @@ Note: For most skills, ChatGPT at Terra-Medium was used.
 20. Spike 001 implementation feedback applied: successful source responses with no usable target-window observations now report `NO_DATA`, while request or validation failures remain `UNAVAILABLE`; Spike 001 ratings stay `UNKNOWN` so later scoring can distinguish absence evidence from uncertainty.
 20. [human review] Found that source availability collapsed provider failure and a successful all-null marine response into the same UNAVAILABLE state. These have different downstream semantics: provider failure may yield UNKNOWN, while successful absence of marine observations may support UNSUITABLE. Added a distinct successful-no-data source state.
 21. Spike 001 verification blocked as `CONTRACT_CHANGED`: implementation feedback added public `NO_DATA` semantics that contradict the READY Design Map and prepared oracle, while the observation-selection ownership requirement was also added after preparation. Contract update and evaluator re-preparation are required before judging the candidate.
+22. Spike 001 brief-readiness review completed: `NO_DATA` now distinguishes a
+    valid source response with no usable target-date observations from source
+    unavailability, without changing activity-rating semantics.
+23. Spike 001 design map revised: source metadata now distinguishes successful
+    empty evidence (`NO_DATA`) from source unavailability, and application-owned
+    observation selection is separated from Open-Meteo field translation.
+24. Spike 001 evaluator preparation repeated after the contract update: the existing plan now covers the four-state source oracle, keeps `NO_DATA` separate from activity suitability, and falsifies application-owned observation selection without fixing observation names.
+25. Spike 001 evaluator verification failed: authoritative qualifiers are not enforced, impossible local timestamps cross the provider boundary, and lifecycle snapshot metadata lacks canonical-location association. The evaluator removed an accidental second-observation extensibility requirement before judging the unchanged candidate; all other prepared criteria passed.
