@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  createLocalTimestampValidator,
+  isValidLocalDate,
+} from "./local-date-time.js";
+
 export interface ResolvedLocation {
   id: string;
   name: string;
@@ -46,6 +51,17 @@ export interface OpenMeteoClientOptions {
 
 const RETRY_DELAYS = [250, 750] as const;
 const REQUEST_TIMEOUT_MILLISECONDS = 4_000;
+const FORECAST_HOURS = 195;
+const WEATHER_FORECAST_DAYS = 9;
+const RETRYABLE_TRANSPORT_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+]);
 
 const POPULATED_PLACE_CODES = new Set([
   "PPL",
@@ -159,6 +175,39 @@ export class OpenMeteoClient {
     return mapLocation(match);
   }
 
+  getRequestedThroughDate(
+    location: ResolvedLocation,
+    source: "WEATHER" | "MARINE",
+    requestedAt: Date,
+    requiredDates: readonly string[],
+  ): string {
+    const requiredThroughDate = requiredDates.at(-1);
+    if (requiredThroughDate === undefined) {
+      throw new Error("At least one required forecast date is needed");
+    }
+    const localHour = Number(
+      new Intl.DateTimeFormat("en", {
+        timeZone: location.timezone,
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).format(requestedAt),
+    );
+    // The accepted v1 timeline deliberately uses ordinary 24-hour local days.
+    // At 21:00, 195 hourly slots exactly cover the remainder of today, the
+    // seven required days, and one additional complete day.
+    const hoursThroughExtraDay =
+      24 - localHour + (requiredDates.length + 1) * 24;
+    const hourlyInputsCoverExtraDay =
+      FORECAST_HOURS >= hoursThroughExtraDay;
+    const calendarInputsCoverExtraDay =
+      source === "MARINE" ||
+      WEATHER_FORECAST_DAYS >= requiredDates.length + 2;
+
+    return hourlyInputsCoverExtraDay && calendarInputsCoverExtraDay
+      ? addCalendarDays(requiredThroughDate, 1)
+      : requiredThroughDate;
+  }
+
   async fetchWeather<Observation extends WeatherObservation>(
     location: ResolvedLocation,
     observations: readonly Observation[],
@@ -203,8 +252,13 @@ export class OpenMeteoClient {
       longitude: String(location.longitude),
       timezone: location.timezone,
       hourly: requestedFields.join(","),
-      forecast_hours: "195",
-      ...(includeSolar ? { daily: "sunrise,sunset", forecast_days: "8" } : {}),
+      forecast_hours: String(FORECAST_HOURS),
+      ...(includeSolar
+        ? {
+            daily: "sunrise,sunset",
+            forecast_days: String(WEATHER_FORECAST_DAYS),
+          }
+        : {}),
     }).toString();
     const body = await this.requestJson(url);
     return parseSourceResponse(
@@ -238,6 +292,7 @@ export class OpenMeteoClient {
           signal,
         });
       } catch (cause) {
+        if (!isRetryableTransportFailure(cause)) throw cause;
         lastFailure = new ProviderRequestError("Open-Meteo request failed", { cause });
       }
       if (response?.ok) return response;
@@ -258,6 +313,31 @@ export class OpenMeteoClient {
 
 function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function addCalendarDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function isRetryableTransportFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (
+    error instanceof DOMException &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
+  ) {
+    return true;
+  }
+  if (!(error instanceof Error)) return false;
+  const code = (error as Error & { code?: unknown }).code;
+  if (
+    typeof code === "string" &&
+    RETRYABLE_TRANSPORT_CODES.has(code)
+  ) {
+    return true;
+  }
+  return isRetryableTransportFailure(error.cause);
 }
 
 function mapLocation(result: GeocodingResult): ResolvedLocation {
@@ -360,7 +440,7 @@ function parseSourceResponse<Observation extends string>(
     });
   const dailySchema = z
     .object({
-      time: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+      time: z.array(z.string().refine(isValidLocalDate)),
       sunrise: z.array(z.string().refine(isValidTimestamp).nullable()),
       sunset: z.array(z.string().refine(isValidTimestamp).nullable()),
     })
@@ -438,60 +518,4 @@ function isValidTimezone(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function createLocalTimestampValidator(
-  timeZone: string,
-): (value: string) => boolean {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-
-  return (value) => {
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
-    if (!match) return false;
-    const [, yearText, monthText, dayText, hourText, minuteText] = match;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const hour = Number(hourText);
-    const minute = Number(minuteText);
-    const localAsUtc = Date.UTC(year, month - 1, day, hour, minute);
-    const normalized = new Date(localAsUtc);
-    if (
-      normalized.getUTCFullYear() !== year ||
-      normalized.getUTCMonth() !== month - 1 ||
-      normalized.getUTCDate() !== day ||
-      normalized.getUTCHours() !== hour ||
-      normalized.getUTCMinutes() !== minute
-    ) {
-      return false;
-    }
-
-    let candidate = localAsUtc;
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      const parts = Object.fromEntries(
-        formatter
-          .formatToParts(new Date(candidate))
-          .map(({ type, value: partValue }) => [type, partValue]),
-      );
-      const representedLocal = Date.UTC(
-        Number(parts.year),
-        Number(parts.month) - 1,
-        Number(parts.day),
-        Number(parts.hour),
-        Number(parts.minute),
-      );
-      const correction = localAsUtc - representedLocal;
-      if (correction === 0) return true;
-      candidate += correction;
-    }
-    return false;
-  };
 }

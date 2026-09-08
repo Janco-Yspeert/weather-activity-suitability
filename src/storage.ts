@@ -1,6 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 
+import {
+  createLocalTimestampValidator,
+  isValidLocalDate,
+  isValidLocalTimestamp,
+} from "./local-date-time.js";
 import type { ResolvedLocation, SourceForecast } from "./open-meteo.js";
 
 export type SourceKind = "WEATHER" | "MARINE";
@@ -21,7 +26,7 @@ export interface ForecastStore {
   appendSnapshot(snapshot: SourceSnapshot): void;
 }
 
-const localTimestamp = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+const localTimestamp = z.string().refine(isValidLocalTimestamp);
 const forecastSchema = z
   .object({
     localTimestamps: z.array(localTimestamp),
@@ -29,7 +34,7 @@ const forecastSchema = z
     solarDays: z
       .array(
         z.object({
-          date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+          date: z.string().refine(isValidLocalDate),
           sunrise: localTimestamp.nullable(),
           sunset: localTimestamp.nullable(),
         }),
@@ -46,6 +51,18 @@ const forecastSchema = z
         });
       }
     }
+    forecast.solarDays?.forEach((day, index) => {
+      for (const field of ["sunrise", "sunset"] as const) {
+        const timestamp = day[field];
+        if (timestamp !== null && !timestamp.startsWith(`${day.date}T`)) {
+          context.addIssue({
+            code: "custom",
+            path: ["solarDays", index, field],
+            message: "Stored solar timestamp must match its local date",
+          });
+        }
+      }
+    });
   });
 
 const STORAGE_SCHEMA_VERSION = 1;
@@ -66,7 +83,11 @@ const SOURCE_OBSERVATIONS: Record<SourceKind, ReadonlySet<string>> = {
   MARINE: new Set(["waveHeight", "swellPeriod", "wavePeriod"]),
 };
 
-function validateForecast(source: SourceKind, value: unknown): SourceForecast {
+function validateForecast(
+  source: SourceKind,
+  value: unknown,
+  timeZone: string,
+): SourceForecast {
   const parsed = forecastSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error("Invalid stored forecast payload", {
@@ -87,6 +108,17 @@ function validateForecast(source: SourceKind, value: unknown): SourceForecast {
     throw new Error(
       "Marine stored forecast payload must not contain solar days",
     );
+  }
+  const isValidTimestamp = createLocalTimestampValidator(timeZone);
+  if (
+    parsed.data.localTimestamps.some((value) => !isValidTimestamp(value)) ||
+    parsed.data.solarDays?.some(
+      (day) =>
+        (day.sunrise !== null && !isValidTimestamp(day.sunrise)) ||
+        (day.sunset !== null && !isValidTimestamp(day.sunset)),
+    )
+  ) {
+    throw new Error("Invalid stored forecast payload");
   }
   return {
     localTimestamps: parsed.data.localTimestamps,
@@ -152,6 +184,7 @@ interface SnapshotRow {
   requested_through_date: string;
   schema_version: number;
   payload: string;
+  timezone: string;
 }
 
 export class SqliteForecastStore implements ForecastStore {
@@ -255,10 +288,11 @@ export class SqliteForecastStore implements ForecastStore {
     const row = this.database
       .prepare(
         `
-      SELECT location_id, source, fetched_at, requested_from_date,
-             requested_through_date, schema_version, payload
-      FROM source_snapshot WHERE location_id = ? AND source = ?
-      ORDER BY fetched_at DESC, id DESC LIMIT 1
+      SELECT s.location_id, s.source, s.fetched_at, s.requested_from_date,
+             s.requested_through_date, s.schema_version, s.payload, l.timezone
+      FROM source_snapshot s JOIN location l ON l.id = s.location_id
+      WHERE s.location_id = ? AND s.source = ?
+      ORDER BY s.fetched_at DESC, s.id DESC LIMIT 1
     `,
       )
       .get(locationId, source) as unknown as SnapshotRow | undefined;
@@ -277,12 +311,23 @@ export class SqliteForecastStore implements ForecastStore {
       forecast: validateForecast(
         row.source,
         JSON.parse(row.payload) as unknown,
+        row.timezone,
       ),
     };
   }
 
   appendSnapshot(snapshot: SourceSnapshot): void {
-    const forecast = validateForecast(snapshot.source, snapshot.forecast);
+    const row = this.database
+      .prepare("SELECT timezone FROM location WHERE id = ?")
+      .get(snapshot.locationId) as unknown as { timezone: string } | undefined;
+    if (row === undefined) {
+      throw new Error(`Unknown location ${snapshot.locationId}`);
+    }
+    const forecast = validateForecast(
+      snapshot.source,
+      snapshot.forecast,
+      row.timezone,
+    );
     this.database
       .prepare(
         `

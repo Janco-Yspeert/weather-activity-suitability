@@ -14,8 +14,16 @@ Status: IMPLEMENTED
   refreshes before selecting them, and uses bounded stale fallback only after
   provider failure.
 - `src/open-meteo.ts` applies a four-second timeout to each of at most three
-  attempts, with deterministic 250 ms and 750 ms retry delays. Only fetch
-  rejection and HTTP 408, 429, and 5xx responses are retried.
+  attempts, with deterministic 250 ms and 750 ms retry delays. Only classified
+  transport failures and HTTP 408, 429, and 5xx responses are retried;
+  programming errors propagate unchanged.
+- `src/local-date-time.ts` provides shared semantic local date/time validation.
+  SQLite reads and writes now reject impossible or timezone-invalid forecast
+  timestamps before scoring can observe them.
+- The Open-Meteo adapter now requests nine weather calendar days and reports
+  the last complete day intended across its rolling hourly and calendar inputs.
+  Late-evening 195-hour requests can therefore remain fresh across local
+  midnight without deriving lifecycle compatibility from returned coverage.
 - `src/graphql.ts` exposes selected-source `fetchedAt` and `stale` metadata.
 - `src/application.ts`, `src/http-server.ts`, `src/server.ts`, the build config,
   and npm scripts provide a configurable SQLite composition boundary and a
@@ -38,8 +46,13 @@ Status: IMPLEMENTED
   series, and marine solar data. This keeps provider DTOs outside persistence
   while preserving the whole scoring input as one snapshot generation.
 - Source-level single-flight keys include canonical location, source kind, and
-  requested-through date. This permits independent weather/marine outcomes and
-  avoids incorrectly sharing work across different product horizons.
+  the adapter-reported requested-through date. This permits independent
+  weather/marine outcomes and avoids incorrectly sharing work across different
+  product horizons.
+- Request-horizon knowledge stays at the provider boundary. Providers that
+  intentionally over-fetch can report that horizon; the service conservatively
+  defaults to the final required date for simple fakes or providers without an
+  extra buffer. This keeps the Open-Meteo-specific `195` out of lifecycle code.
 - `fetchedAt` is captured after the provider response succeeds and before the
   database write. A source is not selected unless that write completes.
 - The HTTP adapter uses Node's native server and `graphql` directly. The
@@ -64,10 +77,15 @@ Status: IMPLEMENTED
   tuning. It was removed. Their original five-second test timeout was also
   shorter than the accepted worst-case retry duration, so only the live-test
   timeout was raised; production timeout and retry behavior were unchanged.
+- Evaluator-retained tests established that storage validation was only
+  syntactic and that every exception from request execution was treated as a
+  transient fetch failure. Shared semantic timestamp validation and explicit
+  transport-error classification repair those root causes rather than adding
+  one-off guards for the example failures.
 
 ## Tests and checks run
 
-- `npm test`: 10 files, 118 tests passed, including the localhost HTTP smoke
+- `npm test`: 10 files, 122 tests passed, including the localhost HTTP smoke
   test.
 - `npm run typecheck`: passed.
 - `npm run build`: passed and produced the runnable server build.
@@ -80,6 +98,10 @@ Status: IMPLEMENTED
 - The spike brief header still says `DRAFT FOR HUMAN REVIEW`, but its stated
   downstream prerequisite is complete, the root lifecycle wording is aligned,
   and the Design Map is `READY`.
+- `human-feedback-forecast-timeline.md` is treated as the accepted refinement
+  of the older statement that `requestedThroughDate` is always the seventh
+  target date. It changes only provider-request horizon accounting; evidence
+  coverage and activity scoring remain unchanged.
 - Partial-source refresh cadence, snapshot cleanup, and location invalidation
   remain deliberate production deferrals from the governing brief.
 - The HTTP test requires permission to bind an ephemeral localhost port; the

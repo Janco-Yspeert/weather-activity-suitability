@@ -12,6 +12,44 @@ function jsonResponse(body: unknown, ok = true): Response {
 }
 
 describe("OpenMeteoClient", () => {
+  it("reports only complete intended request days across the rolling and calendar inputs", () => {
+    const client = new OpenMeteoClient();
+    const requiredDates = [
+      "2026-09-07",
+      "2026-09-08",
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-12",
+      "2026-09-13",
+    ];
+
+    expect(
+      client.getRequestedThroughDate(
+        capeTown(),
+        "WEATHER",
+        new Date("2026-09-06T10:00:00.000Z"),
+        requiredDates,
+      ),
+    ).toBe("2026-09-13");
+    expect(
+      client.getRequestedThroughDate(
+        capeTown(),
+        "WEATHER",
+        new Date("2026-09-06T20:30:00.000Z"),
+        requiredDates,
+      ),
+    ).toBe("2026-09-14");
+    expect(
+      client.getRequestedThroughDate(
+        capeTown(),
+        "MARINE",
+        new Date("2026-09-06T20:30:00.000Z"),
+        requiredDates,
+      ),
+    ).toBe("2026-09-14");
+  });
+
   it("retries transient fetch failures with per-attempt timeouts", async () => {
     const fetch = vi.fn()
       .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"))
@@ -30,8 +68,10 @@ describe("OpenMeteoClient", () => {
     expect(sleep).toHaveBeenCalledWith(250);
   });
 
-  it("does not retry or relabel programming errors from request execution", async () => {
-    const programmingError = new RangeError("request adapter defect");
+  it.each([
+    new RangeError("request adapter range defect"),
+    new TypeError("request adapter type defect"),
+  ])("does not retry or relabel programming errors from request execution", async (programmingError) => {
     const fetch = vi.fn(async () => {
       throw programmingError;
     });
@@ -254,7 +294,7 @@ describe("OpenMeteoClient", () => {
       "Africa/Johannesburg",
     );
     expect(requestedUrl.searchParams.get("forecast_hours")).toBe("195");
-    expect(requestedUrl.searchParams.get("forecast_days")).toBe("8");
+    expect(requestedUrl.searchParams.get("forecast_days")).toBe("9");
     expect(requestedUrl.searchParams.get("hourly")).toBe("temperature_2m");
     expect(requestedUrl.searchParams.get("daily")).toBe("sunrise,sunset");
   });

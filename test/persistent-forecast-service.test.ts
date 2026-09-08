@@ -50,6 +50,26 @@ function provider(): ForecastProvider {
 }
 
 describe("persistent forecast lifecycle", () => {
+  it("reuses a late-evening request across local midnight when its intended horizon includes the new final day", async () => {
+    let now = new Date("2026-09-06T20:30:00.000Z");
+    const store = new MemoryForecastStore();
+    const forecastProvider = provider();
+    forecastProvider.getRequestedThroughDate = vi.fn(() => "2026-09-14");
+    const service = new ForecastService(forecastProvider, () => now, store);
+
+    await service.assess("Cape Town");
+    expect(store.latestSnapshot(location.id, "WEATHER")?.requestedThroughDate)
+      .toBe("2026-09-14");
+
+    now = new Date("2026-09-06T22:30:00.000Z");
+    const afterMidnight = await service.assess("Cape Town");
+
+    expect(afterMidnight.dates.at(-1)).toBe("2026-09-14");
+    expect(forecastProvider.fetchWeather).toHaveBeenCalledTimes(1);
+    expect(forecastProvider.fetchMarine).toHaveBeenCalledTimes(1);
+    expect(afterMidnight.metadata.weather.state).toBe("PARTIAL");
+  });
+
   it("reuses aliases and both source snapshots after a real SQLite restart", async () => {
     const directory = await mkdtemp(join(tmpdir(), "weather-restart-"));
     const path = join(directory, "forecast.sqlite");

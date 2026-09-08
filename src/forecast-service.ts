@@ -53,6 +53,12 @@ export interface ForecastProvider {
     location: ResolvedLocation,
     observations: readonly MarineObservation[],
   ): Promise<SourceForecast<MarineObservation>>;
+  getRequestedThroughDate?(
+    location: ResolvedLocation,
+    source: SourceKind,
+    requestedAt: Date,
+    requiredDates: readonly LocalDate[],
+  ): string;
 }
 
 export type { ActivityRating } from "./activity-scoring.js";
@@ -162,8 +168,21 @@ export class ForecastService {
       return selectedSnapshot(latest, false);
     }
 
+    const requestedThroughDate =
+      this.provider.getRequestedThroughDate?.(
+        location,
+        source,
+        now,
+        dates,
+      ) ?? dates.at(-1)!;
+
     try {
-      const refreshed = await this.refreshSource(location, source, dates);
+      const refreshed = await this.refreshSource(
+        location,
+        source,
+        dates,
+        requestedThroughDate,
+      );
       return selectedSnapshot(refreshed, false);
     } catch (error) {
       if (!(error instanceof ProviderError)) throw error;
@@ -183,12 +202,18 @@ export class ForecastService {
     location: ResolvedLocation,
     source: SourceKind,
     dates: readonly LocalDate[],
+    requestedThroughDate: string,
   ): Promise<SourceSnapshot> {
-    const key = `${location.id}:${source}:${dates.at(-1) ?? ""}`;
+    const key = `${location.id}:${source}:${requestedThroughDate}`;
     const existing = this.inFlightRefreshes.get(key);
     if (existing) return await existing;
 
-    const refresh = this.fetchAndPersist(location, source, dates);
+    const refresh = this.fetchAndPersist(
+      location,
+      source,
+      dates,
+      requestedThroughDate,
+    );
     this.inFlightRefreshes.set(key, refresh);
     try {
       return await refresh;
@@ -203,6 +228,7 @@ export class ForecastService {
     location: ResolvedLocation,
     source: SourceKind,
     dates: readonly LocalDate[],
+    requestedThroughDate: string,
   ): Promise<SourceSnapshot> {
     const forecast =
       source === "WEATHER"
@@ -219,7 +245,7 @@ export class ForecastService {
       source,
       fetchedAt: this.clock(),
       requestedFromDate: dates[0]!,
-      requestedThroughDate: dates.at(-1)!,
+      requestedThroughDate,
       forecast,
     };
     this.store.appendSnapshot(snapshot);
