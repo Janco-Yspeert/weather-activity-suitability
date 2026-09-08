@@ -63,7 +63,7 @@ describe("ForecastService", () => {
 
     expect(result.location).toEqual(capeTown);
     expect(result.dates).toEqual(targetDates);
-    expect(result.metadata).toEqual({
+    expect(result.metadata).toMatchObject({
       weather: { state: "AVAILABLE", coveredDates: targetDates },
       marine: { state: "PARTIAL", coveredDates: ["2026-09-07", "2026-09-09"] },
     });
@@ -120,8 +120,8 @@ describe("ForecastService", () => {
 
     const result = await service.assess("Cape Town");
 
-    expect(result.metadata.weather).toEqual({ state: "AVAILABLE", coveredDates: targetDates });
-    expect(result.metadata.marine).toEqual({ state: "NO_DATA", coveredDates: [] });
+    expect(result.metadata.weather).toMatchObject({ state: "AVAILABLE", coveredDates: targetDates });
+    expect(result.metadata.marine).toMatchObject({ state: "NO_DATA", coveredDates: [] });
     expect(result.surfing).toEqual(Array(7).fill("UNKNOWN"));
   });
 

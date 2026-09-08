@@ -1,4 +1,3 @@
-import { setDefaultAutoSelectFamilyAttemptTimeout } from "node:net";
 import { describe, expect, it } from "vitest";
 
 import { getTargetDates } from "../../src/forecast-policy.js";
@@ -6,9 +5,6 @@ import {
   OpenMeteoClient,
   type ResolvedLocation,
 } from "../../src/open-meteo.js";
-
-//Was having local internet issues and using mobile hotspot. Decide whether to keep this later.
-setDefaultAutoSelectFamilyAttemptTimeout(1000);
 
 const capeTown: ResolvedLocation = {
   id: "3369157",
@@ -40,7 +36,7 @@ describe("Open-Meteo live integration", () => {
     expect(location.latitude).toBeLessThan(-33);
     expect(location.longitude).toBeGreaterThan(18);
     expect(location.longitude).toBeLessThan(19);
-  });
+  }, 20_000);
 
   it("resolves Kaapstad (Afrikaans) to the expected canonical place", async () => {
     const location = await client.resolveLocation("Kaapstad");
@@ -58,7 +54,7 @@ describe("Open-Meteo live integration", () => {
     expect(location.latitude).toBeLessThan(-33);
     expect(location.longitude).toBeGreaterThan(18);
     expect(location.longitude).toBeLessThan(19);
-  });
+  }, 20_000);
 
   it("returns usable weather data covering the target forecast window", async () => {
     const forecast = await client.fetchWeather(capeTown, [
@@ -94,7 +90,7 @@ describe("Open-Meteo live integration", () => {
       expect(returnedDates.has(date)).toBe(true);
       expect(forecast.solarDays?.some((day) => day.date === date)).toBe(true);
     }
-  });
+  }, 20_000);
 
   it("returns usable marine data for Cape Town", async () => {
     const forecast = await client.fetchMarine(capeTown, [
@@ -129,5 +125,5 @@ describe("Open-Meteo live integration", () => {
     for (const date of targetDates) {
       expect(datesWithMarineData.has(date)).toBe(true);
     }
-  });
+  }, 20_000);
 });

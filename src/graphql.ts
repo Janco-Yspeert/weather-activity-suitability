@@ -44,6 +44,8 @@ const typeDefinitions = /* GraphQL */ `
   type SourceAvailability {
     state: SourceState!
     coveredDates: [String!]!
+    fetchedAt: String
+    stale: Boolean!
   }
 
   type ForecastMetadata {

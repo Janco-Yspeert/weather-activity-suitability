@@ -51,8 +51,8 @@ describe("forecast GraphQL contract", () => {
         query Forecast($place: String!) {
           forecast(location: $place) {
             metadata {
-              weather { state coveredDates }
-              marine { state coveredDates }
+              weather { state coveredDates fetchedAt stale }
+              marine { state coveredDates fetchedAt stale }
             }
             location { id name latitude longitude timezone countryCode country admin1 }
             dates
@@ -83,8 +83,15 @@ describe("forecast GraphQL contract", () => {
               "2026-09-12",
               "2026-09-13",
             ],
+            fetchedAt: "2026-09-06T10:00:00.000Z",
+            stale: false,
           },
-          marine: { state: "NO_DATA", coveredDates: [] },
+          marine: {
+            state: "NO_DATA",
+            coveredDates: [],
+            fetchedAt: "2026-09-06T10:00:00.000Z",
+            stale: false,
+          },
         },
         location: {
           id: "2950159",

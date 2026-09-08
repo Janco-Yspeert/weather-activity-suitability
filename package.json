@@ -9,6 +9,8 @@
     "npm": ">=11"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "npm run build && node dist/server.js",
     "test": "vitest run --exclude test/integration/*.test.ts",
     "test:watch": "vitest --exclude test/integration/*.test.ts",
     "test:integration": "vitest run test/integration/open-meteo.test.ts",

@@ -37,7 +37,15 @@ export interface SourceForecast<Observation extends string = string> {
   solarDays?: readonly SolarDay[];
 }
 
-type Fetcher = (url: string) => Promise<Response>;
+type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
+
+export interface OpenMeteoClientOptions {
+  sleep?: (milliseconds: number) => Promise<void>;
+  timeoutSignal?: (milliseconds: number) => AbortSignal;
+}
+
+const RETRY_DELAYS = [250, 750] as const;
+const REQUEST_TIMEOUT_MILLISECONDS = 4_000;
 
 const POPULATED_PLACE_CODES = new Set([
   "PPL",
@@ -116,7 +124,16 @@ export class LocationNotFoundError extends Error {
 }
 
 export class OpenMeteoClient {
-  constructor(private readonly fetcher: Fetcher = (url) => fetch(url)) {}
+  private readonly sleep: (milliseconds: number) => Promise<void>;
+  private readonly timeoutSignal: (milliseconds: number) => AbortSignal;
+
+  constructor(
+    private readonly fetcher: Fetcher = (url, init) => fetch(url, init),
+    options: OpenMeteoClientOptions = {},
+  ) {
+    this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.timeoutSignal = options.timeoutSignal ?? ((milliseconds) => AbortSignal.timeout(milliseconds));
+  }
 
   async resolveLocation(query: string): Promise<ResolvedLocation> {
     const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
@@ -200,18 +217,7 @@ export class OpenMeteoClient {
   }
 
   private async requestJson(url: URL): Promise<unknown> {
-    let response: Response;
-    try {
-      response = await this.fetcher(url.toString());
-    } catch (cause) {
-      throw new ProviderRequestError("Open-Meteo request failed", { cause });
-    }
-
-    if (!response.ok) {
-      throw new ProviderRequestError(
-        `Open-Meteo request failed with HTTP ${response.status}`,
-      );
-    }
+    const response = await this.requestWithRetry(url);
 
     try {
       return (await response.json()) as unknown;
@@ -221,6 +227,37 @@ export class OpenMeteoClient {
       });
     }
   }
+
+  private async requestWithRetry(url: URL): Promise<Response> {
+    let lastFailure: ProviderRequestError | undefined;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      let response: Response | undefined;
+      const signal = this.timeoutSignal(REQUEST_TIMEOUT_MILLISECONDS);
+      try {
+        response = await this.fetcher(url.toString(), {
+          signal,
+        });
+      } catch (cause) {
+        lastFailure = new ProviderRequestError("Open-Meteo request failed", { cause });
+      }
+      if (response?.ok) return response;
+      if (response !== undefined) {
+        const failure = new ProviderRequestError(
+          `Open-Meteo request failed with HTTP ${response.status}`,
+        );
+        if (!isRetryableStatus(response.status)) throw failure;
+        lastFailure = failure;
+      }
+
+      const delay = RETRY_DELAYS[attempt];
+      if (delay !== undefined) await this.sleep(delay);
+    }
+    throw lastFailure ?? new ProviderRequestError("Open-Meteo request failed");
+  }
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
 }
 
 function mapLocation(result: GeocodingResult): ResolvedLocation {

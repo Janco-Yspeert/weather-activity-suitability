@@ -3,7 +3,7 @@ export type LocalDate = `${number}-${number}-${number}`;
 export interface SnapshotMetadata {
   locationId: string;
   fetchedAt: Date;
-  coveredDates: ReadonlySet<string>;
+  requestedThroughDate: string;
 }
 
 const FRESH_MILLISECONDS = 3 * 60 * 60 * 1000;
@@ -30,8 +30,15 @@ export function forecastCoverage(localTimestamps: readonly string[]): Set<LocalD
   return new Set(localTimestamps.map((timestamp) => timestamp.slice(0, 10) as LocalDate));
 }
 
-function hasCoverage(snapshot: SnapshotMetadata, requiredDates: readonly string[]): boolean {
-  return requiredDates.every((date) => snapshot.coveredDates.has(date));
+function hasCompatibleWindow(
+  snapshot: SnapshotMetadata,
+  requiredDates: readonly string[],
+): boolean {
+  const requestedThroughDate = requiredDates.at(-1);
+  return (
+    requestedThroughDate === undefined ||
+    snapshot.requestedThroughDate >= requestedThroughDate
+  );
 }
 
 function ageAt(snapshot: SnapshotMetadata, now: Date): number {
@@ -49,21 +56,19 @@ export function isFreshSnapshot(
     snapshot.locationId === locationId &&
     age >= 0 &&
     age < FRESH_MILLISECONDS &&
-    hasCoverage(snapshot, requiredDates)
+    hasCompatibleWindow(snapshot, requiredDates)
   );
 }
 
 export function isStaleFallbackEligible(
   snapshot: SnapshotMetadata,
   locationId: string,
-  requiredDates: readonly string[],
   now: Date,
 ): boolean {
   const age = ageAt(snapshot, now);
   return (
     snapshot.locationId === locationId &&
-    age >= 0 &&
-    age <= STALE_FALLBACK_MILLISECONDS &&
-    hasCoverage(snapshot, requiredDates)
+    age >= FRESH_MILLISECONDS &&
+    age <= STALE_FALLBACK_MILLISECONDS
   );
 }

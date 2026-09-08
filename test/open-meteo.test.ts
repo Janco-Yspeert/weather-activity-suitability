@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  LocationNotFoundError,
   OpenMeteoClient,
   ProviderRequestError,
   ProviderResponseError,
@@ -11,6 +12,87 @@ function jsonResponse(body: unknown, ok = true): Response {
 }
 
 describe("OpenMeteoClient", () => {
+  it("retries transient fetch failures with per-attempt timeouts", async () => {
+    const fetch = vi.fn()
+      .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+    const sleep = vi.fn(async () => undefined);
+    const timeoutSignal = vi.fn(() => new AbortController().signal);
+    const client = new OpenMeteoClient(fetch, { sleep, timeoutSignal });
+
+    await expect(client.resolveLocation("Nowhere")).rejects.toThrow(
+      "No supported city or town found",
+    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[0]![1]).toEqual({ signal: timeoutSignal.mock.results[0]!.value });
+    expect(timeoutSignal).toHaveBeenCalledTimes(2);
+    expect(timeoutSignal).toHaveBeenCalledWith(4_000);
+    expect(sleep).toHaveBeenCalledWith(250);
+  });
+
+  it("does not retry or relabel programming errors from request execution", async () => {
+    const programmingError = new RangeError("request adapter defect");
+    const fetch = vi.fn(async () => {
+      throw programmingError;
+    });
+    const sleep = vi.fn(async () => undefined);
+    const client = new OpenMeteoClient(fetch, { sleep });
+
+    await expect(client.resolveLocation("Cape Town")).rejects.toBe(
+      programmingError,
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("retries retryable HTTP statuses but stops after three total attempts", async () => {
+    const fetch = vi.fn(async () => jsonResponse({}, false));
+    const sleep = vi.fn(async () => undefined);
+    const client = new OpenMeteoClient(fetch, { sleep });
+
+    await expect(client.resolveLocation("Cape Town")).rejects.toBeInstanceOf(
+      ProviderRequestError,
+    );
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[250], [750]]);
+  });
+
+  it("recovers when a retryable HTTP failure is followed by success", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({}, false))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+    const sleep = vi.fn(async () => undefined);
+
+    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
+      .rejects.toBeInstanceOf(LocationNotFoundError);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(250);
+  });
+
+  it("recovers when a retryable HTTP failure is followed by success", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({}, false))
+      .mockResolvedValueOnce(jsonResponse({ results: [] }));
+    const sleep = vi.fn(async () => undefined);
+
+    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
+      .rejects.toBeInstanceOf(LocationNotFoundError);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(250);
+  });
+
+  it("does not retry non-transient HTTP or response failures", async () => {
+    const badRequest = vi.fn(async () => ({ ...jsonResponse({}, false), status: 400 }));
+    await expect(new OpenMeteoClient(badRequest).resolveLocation("Cape Town"))
+      .rejects.toBeInstanceOf(ProviderRequestError);
+    expect(badRequest).toHaveBeenCalledTimes(1);
+
+    const invalidJson = vi.fn(async () => ({ ok: true, status: 200, json: async () => { throw new Error("bad JSON"); } }) as unknown as Response);
+    await expect(new OpenMeteoClient(invalidJson).resolveLocation("Cape Town"))
+      .rejects.toBeInstanceOf(ProviderResponseError);
+    expect(invalidJson).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves the first accepted city/town from the full caller query", async () => {
     const fetch = vi.fn(async (_url: string) =>
       jsonResponse({

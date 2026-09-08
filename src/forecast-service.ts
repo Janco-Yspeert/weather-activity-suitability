@@ -1,4 +1,9 @@
-import { getTargetDates, type LocalDate } from "./forecast-policy.js";
+import {
+  getTargetDates,
+  isFreshSnapshot,
+  isStaleFallbackEligible,
+  type LocalDate,
+} from "./forecast-policy.js";
 import {
   scoreActivities,
   type ActivityRating,
@@ -6,6 +11,12 @@ import {
   type ForecastAdvisoryCode,
 } from "./activity-scoring.js";
 import { ProviderError } from "./open-meteo.js";
+import {
+  MemoryForecastStore,
+  type ForecastStore,
+  type SourceKind,
+  type SourceSnapshot,
+} from "./storage.js";
 import type {
   MarineObservation,
   ResolvedLocation,
@@ -50,6 +61,8 @@ export type SourceState = "AVAILABLE" | "PARTIAL" | "NO_DATA" | "UNAVAILABLE";
 export interface SourceAvailability {
   state: SourceState;
   coveredDates: LocalDate[];
+  fetchedAt: string | null;
+  stale: boolean;
 }
 
 export interface ForecastAssessment {
@@ -67,33 +80,38 @@ export interface ForecastAssessment {
   forecastAdvisories: ForecastAdvisoryCode[];
 }
 
-interface FetchedSources {
-  weather: SourceForecast<WeatherObservation> | null;
-  marine: SourceForecast<MarineObservation> | null;
+interface SelectedSource<Observation extends string> {
+  forecast: SourceForecast<Observation> | null;
+  fetchedAt: Date | null;
+  stale: boolean;
+}
+
+interface SelectedSources {
+  weather: SelectedSource<WeatherObservation>;
+  marine: SelectedSource<MarineObservation>;
 }
 
 export class ForecastService {
-  private readonly inFlightForecasts = new Map<
-    string,
-    Promise<FetchedSources>
-  >();
+  private readonly inFlightRefreshes = new Map<string, Promise<SourceSnapshot>>();
 
   constructor(
     private readonly provider: ForecastProvider,
     private readonly clock: () => Date = () => new Date(),
+    private readonly store: ForecastStore = new MemoryForecastStore(),
   ) {}
 
   async assess(query: string): Promise<ForecastAssessment> {
-    const normalizedQuery = query.trim();
+    const normalizedQuery = normalizeLocationQuery(query);
     if (normalizedQuery.length === 0)
       throw new Error("Location must not be empty");
 
-    const location = await this.provider.resolveLocation(normalizedQuery);
-    const dates = getTargetDates(this.clock(), location.timezone);
-    const sources = await this.refresh(location);
+    const location = await this.resolveLocation(normalizedQuery, query.trim());
+    const now = this.clock();
+    const dates = getTargetDates(now, location.timezone);
+    const sources = await this.selectSources(location, dates, now);
     const activities = scoreActivities(
-      sources.weather,
-      sources.marine,
+      sources.weather.forecast,
+      sources.marine.forecast,
       dates,
     );
 
@@ -108,52 +126,130 @@ export class ForecastService {
     };
   }
 
-  private async refresh(location: ResolvedLocation): Promise<FetchedSources> {
-    const existing = this.inFlightForecasts.get(location.id);
-    if (existing) return existing;
+  private async resolveLocation(
+    normalizedQuery: string,
+    providerQuery: string,
+  ): Promise<ResolvedLocation> {
+    const cached = this.store.findLocationByAlias(normalizedQuery);
+    if (cached !== null) return cached;
+    const location = await this.provider.resolveLocation(providerQuery);
+    this.store.saveLocationAlias(normalizedQuery, location);
+    return location;
+  }
 
-    const refresh = this.fetchSources(location);
-    this.inFlightForecasts.set(location.id, refresh);
+  private async selectSources(
+    location: ResolvedLocation,
+    dates: readonly LocalDate[],
+    now: Date,
+  ): Promise<SelectedSources> {
+    const [weather, marine] = await Promise.all([
+      this.selectSource(location, "WEATHER", dates, now),
+      this.selectSource(location, "MARINE", dates, now),
+    ]);
+    return { weather, marine };
+  }
+
+  private async selectSource<
+    Observation extends WeatherObservation | MarineObservation,
+  >(
+    location: ResolvedLocation,
+    source: SourceKind,
+    dates: readonly LocalDate[],
+    now: Date,
+  ): Promise<SelectedSource<Observation>> {
+    const latest = this.store.latestSnapshot(location.id, source);
+    if (latest !== null && isFreshSnapshot(latest, location.id, dates, now)) {
+      return selectedSnapshot(latest, false);
+    }
+
+    try {
+      const refreshed = await this.refreshSource(location, source, dates);
+      return selectedSnapshot(refreshed, false);
+    } catch (error) {
+      if (!(error instanceof ProviderError)) throw error;
+    }
+
+    const fallback = this.store.latestSnapshot(location.id, source);
+    if (
+      fallback !== null &&
+      isStaleFallbackEligible(fallback, location.id, now)
+    ) {
+      return selectedSnapshot(fallback, true);
+    }
+    return { forecast: null, fetchedAt: null, stale: false };
+  }
+
+  private async refreshSource(
+    location: ResolvedLocation,
+    source: SourceKind,
+    dates: readonly LocalDate[],
+  ): Promise<SourceSnapshot> {
+    const key = `${location.id}:${source}:${dates.at(-1) ?? ""}`;
+    const existing = this.inFlightRefreshes.get(key);
+    if (existing) return await existing;
+
+    const refresh = this.fetchAndPersist(location, source, dates);
+    this.inFlightRefreshes.set(key, refresh);
     try {
       return await refresh;
     } finally {
-      if (this.inFlightForecasts.get(location.id) === refresh) {
-        this.inFlightForecasts.delete(location.id);
+      if (this.inFlightRefreshes.get(key) === refresh) {
+        this.inFlightRefreshes.delete(key);
       }
     }
   }
 
-  private async fetchSources(
+  private async fetchAndPersist(
     location: ResolvedLocation,
-  ): Promise<FetchedSources> {
-    const [weather, marine] = await Promise.all([
-      asSourceOutcome(
-        this.provider.fetchWeather(location, REQUIRED_WEATHER_OBSERVATIONS),
-      ),
-      asSourceOutcome(
-        this.provider.fetchMarine(location, REQUIRED_MARINE_OBSERVATIONS),
-      ),
-    ]);
-    return { weather, marine };
+    source: SourceKind,
+    dates: readonly LocalDate[],
+  ): Promise<SourceSnapshot> {
+    const forecast =
+      source === "WEATHER"
+        ? await this.provider.fetchWeather(
+            location,
+            REQUIRED_WEATHER_OBSERVATIONS,
+          )
+        : await this.provider.fetchMarine(
+            location,
+            REQUIRED_MARINE_OBSERVATIONS,
+          );
+    const snapshot: SourceSnapshot = {
+      locationId: location.id,
+      source,
+      fetchedAt: this.clock(),
+      requestedFromDate: dates[0]!,
+      requestedThroughDate: dates.at(-1)!,
+      forecast,
+    };
+    this.store.appendSnapshot(snapshot);
+    return snapshot;
   }
 }
 
-async function asSourceOutcome<Observation extends string>(
-  request: Promise<SourceForecast<Observation>>,
-): Promise<SourceForecast<Observation> | null> {
-  try {
-    return await request;
-  } catch (error) {
-    if (error instanceof ProviderError) return null;
-    throw error;
-  }
+function selectedSnapshot<Observation extends string>(
+  snapshot: SourceSnapshot,
+  stale: boolean,
+): SelectedSource<Observation> {
+  return {
+    forecast: snapshot.forecast as SourceForecast<Observation>,
+    fetchedAt: snapshot.fetchedAt,
+    stale,
+  };
 }
 
 function describeAvailability(
-  forecast: SourceForecast | null,
+  selected: SelectedSource<string>,
   targetDates: readonly LocalDate[],
 ): SourceAvailability {
-  if (forecast === null) return { state: "UNAVAILABLE", coveredDates: [] };
+  const { forecast } = selected;
+  const freshness = {
+    fetchedAt: selected.fetchedAt?.toISOString() ?? null,
+    stale: selected.stale,
+  };
+  if (forecast === null) {
+    return { state: "UNAVAILABLE", coveredDates: [], ...freshness };
+  }
 
   const usableDates = new Set<LocalDate>();
   const observationSeries = Object.values(forecast.observations);
@@ -169,5 +265,9 @@ function describeAvailability(
       : coveredDates.length > 0
         ? "PARTIAL"
         : "NO_DATA";
-  return { state, coveredDates };
+  return { state, coveredDates, ...freshness };
+}
+
+function normalizeLocationQuery(query: string): string {
+  return query.normalize("NFKC").trim().toLocaleLowerCase("en");
 }

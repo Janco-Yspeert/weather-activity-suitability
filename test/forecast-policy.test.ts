@@ -43,10 +43,10 @@ describe("snapshot lifecycle policy", () => {
   const completeSnapshot = {
     locationId: "3369157",
     fetchedAt: new Date("2026-09-06T10:00:00.000Z"),
-    coveredDates: new Set(["2026-09-07", "2026-09-08"]),
+    requestedThroughDate: "2026-09-08",
   };
 
-  it("requires actual coverage as well as age under three hours for normal reuse", () => {
+  it("requires a compatible requested horizon and age under three hours for normal reuse", () => {
     expect(
       isFreshSnapshot(
         completeSnapshot,
@@ -65,7 +65,7 @@ describe("snapshot lifecycle policy", () => {
     ).toBe(false);
     expect(
       isFreshSnapshot(
-        { ...completeSnapshot, coveredDates: new Set(["2026-09-07"]) },
+        { ...completeSnapshot, requestedThroughDate: "2026-09-07" },
         "3369157",
         requiredDates,
         new Date("2026-09-06T11:00:00.000Z"),
@@ -73,12 +73,18 @@ describe("snapshot lifecycle policy", () => {
     ).toBe(false);
   });
 
-  it("permits refresh-failure fallback through 24 hours, with sufficient coverage", () => {
+  it("permits refresh-failure fallback from three through 24 hours", () => {
     expect(
       isStaleFallbackEligible(
         completeSnapshot,
         "3369157",
-        requiredDates,
+        new Date("2026-09-06T12:59:59.999Z"),
+      ),
+    ).toBe(false);
+    expect(
+      isStaleFallbackEligible(
+        completeSnapshot,
+        "3369157",
         new Date("2026-09-07T10:00:00.000Z"),
       ),
     ).toBe(true);
@@ -86,7 +92,6 @@ describe("snapshot lifecycle policy", () => {
       isStaleFallbackEligible(
         completeSnapshot,
         "3369157",
-        requiredDates,
         new Date("2026-09-07T10:00:00.001Z"),
       ),
     ).toBe(false);
@@ -99,7 +104,7 @@ describe("snapshot lifecycle policy", () => {
       false,
     );
     expect(
-      isStaleFallbackEligible(completeSnapshot, "other", requiredDates, now),
+      isStaleFallbackEligible(completeSnapshot, "other", now),
     ).toBe(false);
   });
 
