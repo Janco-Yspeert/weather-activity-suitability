@@ -2,59 +2,92 @@
 
 ## Verdict
 
-The brief, accepted calibration contract, and inherited product contract are
-ready to govern independent Design Map, implementation, and evaluation of
-Spike 002.
+The Spike 002 brief and human-accepted calibration amendment are ready to
+govern renewed independent design, implementation and evaluation.
+
+The amendment resolves the prior sufficiency ambiguity without changing the
+higher-level activity semantics. Missing timestamps no longer shrink the
+expected activity period, while a fully observed minimum surf or ski
+opportunity may still support a conservatively capped positive result below
+70% whole-period coverage.
+
+One stale introductory sentence in `calibration.md` should be corrected, but it
+does not leave behavioral implementation or evaluation choices unresolved.
 
 ## Source and inherited-contract coverage
 
 - The source assignment's city/town input, Open-Meteo-backed seven-day
-  activity assessment, Node.js/GraphQL constraints, and eventual persistence
-  requirement remain covered. Durable snapshots and request-time reuse remain
-  explicitly deferred to Spike 003.
-- The inherited public rating meanings, canonical location identity,
-  destination-local date window, independent weather/marine acquisition,
-  source-state metadata, provider validation, observation-selection boundary,
-  refresh coalescing, and date-aligned GraphQL response remain intact.
-- Spike 002 clearly extends the inherited placeholder ratings with an
-  application-owned aligned forecast, global severe-weather override,
-  activity-specific synthesis, weather-only scope, and internal reasons needed
-  for indoor sightseeing. It keeps persistence, break/resort availability,
-  official warnings, and partial-current-day scoring outside scope.
-- The calibration-authoring phase now correctly identifies the remaining
-  rating-affecting choices, constrains them to the fixed semantics and
-  representative scenarios, requires human acceptance, freezes the resulting
-  `calibration.md`, and requires root-brief integration before downstream work.
+  activity assessment, Node.js/GraphQL constraints and eventual persistence
+  requirement remain covered. Durable persistence and request-time reuse stay
+  explicitly deferred beyond Spike 002.
+- The inherited public ratings, canonical location identity,
+  destination-local dates, independent weather/marine acquisition, source
+  metadata, provider validation and refresh coalescing remain unchanged.
+- Source coverage remains distinct from activity sufficiency. Expected surf
+  and ski slots are now derived from their destination-local activity periods,
+  independently of returned records.
+- The amendment is confined to surfing and skiing. Outdoor and indoor
+  sightseeing semantics are unchanged.
 
 ## Material findings
 
-No blockers or material clarifications were identified.
+No blockers or material clarifications remain.
+
+The revised surf contract distinguishes >=70% ordinary period aggregation from
+a below-threshold fallback based only on the best fully observed two-hour-or-
+longer opportunity. The fallback cannot use missing periods or a second
+opportunity, cannot infer an ordinary negative result from sparse evidence, and
+cannot exceed `GOOD`.
+
+The revised ski contract likewise distinguishes >=70% ordinary aggregation
+from a below-threshold fallback based on one complete four-hour usable block.
+Its block-local snow rules are now total and unambiguous:
+
+- `<0.01 m` or `0.01–<0.05 m` cannot establish a positive fallback and yield
+  `UNKNOWN` under partial evidence;
+- `<0.01 m` becomes `UNSUITABLE` only when the independent 70% snow-depth
+  evidence threshold is met;
+- `0.05–<0.15 m` caps the fallback at `FAIR`;
+- `0.15–<0.30 m` caps it at `GOOD`; and
+- `>=0.30 m` remains subject to the general partial-evidence `GOOD` maximum.
+
+The accompanying scenarios fix the expected outcomes for each boundary, so an
+implementer or evaluator need not invent missing snow semantics.
+
+## Minor editorial edit
+
+The calibration status and amendment-record heading say the sufficiency
+amendment is human accepted, but the introductory paragraph still calls it a
+“proposed amendment” whose exact text “remains subject to human confirmation.”
+Update that paragraph to past tense and remove the obsolete confirmation
+sentence. This does not alter the accepted behavioral contract.
 
 ## Strengths relevant to readiness
 
-- Calibration authority is now clear: the calibration phase authors the values,
-  and Design Map, implementation, and evaluator consume the accepted frozen
-  artifact.
-- `calibration.md` is unambiguously marked `ACCEPTED`, and root `brief.md`
-  references it as the accepted v1 calibration contract before downstream work.
-- The outdoor fallback rows and skiing's no-usable-but-scorable-`POOR` row now
-  make their daily aggregation total rather than leaving implementation to
-  invent a category.
-- The brief still distinguishes lack of evidence from affirmative
-  unsuitability, avoids a fixed 24-hour day assumption, and preserves the
-  successful-all-null marine distinction needed for structural surf
-  non-applicability.
-- The activity and safety boundaries remain appropriately narrow; no one is
-  attempting to derive avalanche warnings from a weather-code horoscope.
+- Period sufficiency and opportunity sufficiency are explicit and
+  activity-specific rather than hidden inside a universal coverage algorithm.
+- Missing timestamps cannot reduce denominators, bridge gaps, manufacture
+  opportunities or contribute positive utility.
+- Positive existence claims and negative absence claims now require
+  appropriately different evidence without converting missing data into good
+  weather.
+- Global extremes, structural marine non-applicability and independently
+  sufficient no-snow evidence retain clear precedence.
+- Partial-evidence results exclude whole-day and multi-opportunity bonuses, and
+  wider-day ski modifiers are not applied to incomplete periods.
+- The amendment preserves the brief's weather-only scope and does not smuggle
+  in changes to outdoor or indoor sightseeing.
 
-## Review limitations and repository evidence inspected
+## Review limitations and evidence inspected
 
-Reviewed `AGENTS.md`, `skills/brief-readiness/SKILL.md`, the revised
-`spikes/002-activity-scoring/brief.md`, its explicitly referenced accepted
-`calibration.md`, `source-brief.md`, inherited `brief.md`, `decisions.md`,
-Spike 001's authored brief, and the current provider, service, GraphQL, policy
-interfaces and focused tests. I did not consult the current Spike 002 Design
-Map, evaluation artifacts, implementation reports, human-review artifacts, or
-other later workflow outputs.
+Reviewed `AGENTS.md`, `source-brief.md`, root `brief.md`, the relevant activity
+and evidence decisions in `decisions.md`, accepted Spike 001 `as-built.md`, the
+complete Spike 002 `brief.md`, the updated human-accepted `calibration.md`, and
+`WORKLOG.md`.
 
-READY
+In accordance with the brief-readiness boundary, this review did not inspect
+the Spike 002 Design Map, evaluator artifacts, implementation report,
+candidate scoring code or developer tests. It does not judge the current
+candidate against the amended contract.
+
+READY WITH MINOR EDITS

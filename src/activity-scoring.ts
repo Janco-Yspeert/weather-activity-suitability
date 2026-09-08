@@ -40,12 +40,14 @@ export interface ActivityRatings {
 interface Point<Observation extends string> {
   timestamp: string;
   values: Partial<Record<Observation, number | null>>;
+  expectedIndex?: number;
 }
 
 interface ScoredHour {
   timestamp: string;
   rating: OrdinaryRating;
   utility: number;
+  expectedIndex?: number;
 }
 
 interface Opportunity {
@@ -74,6 +76,7 @@ export function scoreActivities(
   weather: SourceForecast<WeatherObservation> | null,
   marine: SourceForecast<MarineObservation> | null,
   dates: readonly string[],
+  timeZone = "UTC",
 ): ActivityRatings {
   const weatherPoints = weather === null ? [] : toPoints(weather);
   const marinePoints = marine === null ? [] : toPoints(marine);
@@ -101,10 +104,11 @@ export function scoreActivities(
           solarByDate.get(date),
           marine,
           structuralMarineNull,
+          timeZone,
         );
     const ski = globalExtreme
       ? assessment("UNSUITABLE", "GLOBAL_EXTREME")
-      : scoreSki(dayWeather);
+      : scoreSki(dayWeather, date, timeZone);
     const indoor = globalExtreme
       ? assessment("UNSUITABLE", "GLOBAL_EXTREME")
       : scoreIndoor(outdoor, ski, surf);
@@ -226,6 +230,7 @@ function scoreSurf(
   solar: SolarDay | undefined,
   marineSource: SourceForecast<MarineObservation> | null,
   structuralMarineNull: boolean,
+  timeZone: string,
 ): Assessment {
   if (structuralMarineNull) {
     return assessment("UNSUITABLE", "STRUCTURAL_NON_APPLICABLE");
@@ -236,15 +241,16 @@ function scoreSurf(
 
   const start = shiftMinutes(solar.sunrise, -90);
   const end = shiftMinutes(solar.sunset, 60);
-  const expected = weather.filter(
-    (point) => point.timestamp >= start && point.timestamp <= end,
-  );
-  if (expected.length === 0) return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+  const expectedSlots = expectedHourlySlots(start, end, timeZone);
+  if (expectedSlots.length === 0) return assessment("UNKNOWN", "INSUFFICIENT_DATA");
 
-  const marineByTime = new Map(marine.map((point) => [point.timestamp, point]));
-  const scored = expected.flatMap((weatherPoint) => {
-    const marinePoint = marineByTime.get(weatherPoint.timestamp);
+  const alignedWeather = alignToExpectedSlots(weather, expectedSlots);
+  const alignedMarine = alignToExpectedSlots(marine, expectedSlots);
+  const scored = expectedSlots.flatMap((_, index) => {
+    const weatherPoint = alignedWeather[index];
+    const marinePoint = alignedMarine[index];
     if (
+      weatherPoint === undefined ||
       marinePoint === undefined ||
       !hasValues(weatherPoint, ["windSpeed", "weatherCode"]) ||
       !hasValues(marinePoint, ["waveHeight", "swellPeriod", "wavePeriod"])
@@ -254,11 +260,15 @@ function scoreSurf(
     return [scoreSurfHour(weatherPoint, marinePoint)];
   });
 
-  if (scored.length / expected.length < 0.7) {
-    return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+  const opportunities = surfOpportunities(scored);
+  if (scored.length / expectedSlots.length < 0.7) {
+    if (opportunities.length === 0) {
+      return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+    }
+    opportunities.sort(compareOpportunities);
+    return assessment(capRating(surfDaily([opportunities[0]!]), "GOOD"), "WEATHER");
   }
 
-  const opportunities = surfOpportunities(scored);
   if (opportunities.length === 0) {
     return assessment(
       scored.every(({ rating }) => rating === "UNSUITABLE") ? "UNSUITABLE" : "POOR",
@@ -291,13 +301,23 @@ function scoreSurfHour(
     (waveHeight >= 3.5 && swellPeriod >= 12) ||
     wind >= 50
   ) {
-    return { timestamp: weather.timestamp, rating: "UNSUITABLE", utility: 0 };
+    return {
+      timestamp: weather.timestamp,
+      rating: "UNSUITABLE",
+      utility: 0,
+      ...(weather.expectedIndex === undefined ? {} : { expectedIndex: weather.expectedIndex }),
+    };
   }
 
   let rating: OrdinaryRating = utilityRating(utility);
   if (waveHeight >= 3 && swellPeriod >= 12) rating = capRating(rating, "POOR");
   utility = cappedUtility(utility, rating);
-  return { timestamp: weather.timestamp, rating, utility };
+  return {
+    timestamp: weather.timestamp,
+    rating,
+    utility,
+    ...(weather.expectedIndex === undefined ? {} : { expectedIndex: weather.expectedIndex }),
+  };
 }
 
 function surfOpportunities(hours: ScoredHour[]): Opportunity[] {
@@ -321,7 +341,7 @@ function surfOpportunities(hours: ScoredHour[]): Opportunity[] {
 
   for (const hour of hours) {
     const surfable = qualityRank[hour.rating] >= qualityRank.FAIR;
-    if (!surfable || (run.length > 0 && !isNextHour(run.at(-1)!.timestamp, hour.timestamp))) {
+    if (!surfable || (run.length > 0 && !areConsecutive(run.at(-1)!, hour))) {
       flush();
     }
     if (surfable) run.push(hour);
@@ -354,25 +374,32 @@ function surfDaily(opportunities: Opportunity[]): QualityRating {
   return "FAIR";
 }
 
-function scoreSki(points: Point<WeatherObservation>[]): Assessment {
-  const expected = points.filter((point) => inHourRange(point.timestamp, 8, 17));
-  if (expected.length === 0) return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+function scoreSki(
+  points: Point<WeatherObservation>[],
+  date: string,
+  timeZone: string,
+): Assessment {
+  const expectedSlots = expectedHourlySlots(`${date}T08:00`, `${date}T17:00`, timeZone);
+  if (expectedSlots.length === 0) return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+  const expected = alignToExpectedSlots(points, expectedSlots).filter(
+    (point): point is Point<WeatherObservation> => point !== undefined,
+  );
 
   const snowDepthValues = presentValues(expected, "snowDepth");
-  const enoughSnowEvidence = snowDepthValues.length / expected.length >= 0.7;
+  const enoughSnowEvidence = snowDepthValues.length / expectedSlots.length >= 0.7;
   if (enoughSnowEvidence && median(snowDepthValues) < 0.01) {
     return assessment("UNSUITABLE", "PREREQUISITE_ABSENT");
   }
 
   const scorable = expected.filter((point) => hasValues(point, skiRequired));
-  if (scorable.length / expected.length < 0.7 || !enoughSnowEvidence) {
-    return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+  if (scorable.length / expectedSlots.length < 0.7 || !enoughSnowEvidence) {
+    return scorePartialSki(scorable);
   }
 
   const snowDepth = median(values(scorable, "snowDepth"));
   const snow = snowDepthUtility(snowDepth);
   const scored = scorable.map((point) => scoreSkiHour(point, snow.utility));
-  const usableFraction = scored.filter(isUsable).length / expected.length;
+  const usableFraction = scored.filter(isUsable).length / expectedSlots.length;
   const blocks = contiguousBlocks(scored.filter(isUsable), 4);
   const blockScores = blocks.map((block) =>
     Math.round(block.reduce((sum, hour) => sum + hour.utility, 0) / block.length),
@@ -395,6 +422,40 @@ function scoreSki(points: Point<WeatherObservation>[]): Assessment {
   if (medianTemperature > 10 && snowDepth < 0.1) rating = "UNSUITABLE";
   else if (medianTemperature > 7 && snowDepth < 0.15) rating = capRating(rating, "POOR");
   return assessment(rating, "WEATHER");
+}
+
+function scorePartialSki(scorable: Point<WeatherObservation>[]): Assessment {
+  let best:
+    | { utility: number; rating: QualityRating; snowCap: QualityRating }
+    | undefined;
+
+  for (let index = 0; index <= scorable.length - 4; index += 1) {
+    const block = scorable.slice(index, index + 4);
+    if (
+      !block
+        .slice(1)
+        .every((point, offset) => areConsecutive(block[offset]!, point))
+    ) {
+      continue;
+    }
+
+    const snow = snowDepthUtility(median(values(block, "snowDepth")));
+    if (snow.utility < 50) continue;
+    const scored = block.map((point) => scoreSkiHour(point, snow.utility));
+    if (!scored.every(isUsable)) continue;
+
+    const utility = Math.round(
+      scored.reduce((sum, hour) => sum + hour.utility, 0) / scored.length,
+    );
+    const rating = utilityRating(utility);
+    if (best === undefined || utility > best.utility) {
+      best = { utility, rating, snowCap: snow.cap };
+    }
+  }
+
+  if (best === undefined) return assessment("UNKNOWN", "INSUFFICIENT_DATA");
+  const fallback = best.rating === "EXCELLENT" ? "GOOD" : "FAIR";
+  return assessment(capRating(fallback, best.snowCap), "WEATHER");
 }
 
 const skiRequired: readonly WeatherObservation[] = [
@@ -425,7 +486,12 @@ function scoreSkiHour(point: Point<WeatherObservation>, snowUtility: number): Sc
   );
 
   if (wind >= 50 || visibility < 500 || rain > 2) {
-    return { timestamp: point.timestamp, rating: "UNSUITABLE", utility: 0 };
+    return {
+      timestamp: point.timestamp,
+      rating: "UNSUITABLE",
+      utility: 0,
+      ...(point.expectedIndex === undefined ? {} : { expectedIndex: point.expectedIndex }),
+    };
   }
 
   let rating: OrdinaryRating = utilityRating(utility);
@@ -433,7 +499,12 @@ function scoreSkiHour(point: Point<WeatherObservation>, snowUtility: number): Sc
   if (rain > 0.5 || weatherCode === 66) rating = capRating(rating, "POOR");
   else if (rain > 0) rating = capRating(rating, "FAIR");
   utility = cappedUtility(utility, rating);
-  return { timestamp: point.timestamp, rating, utility };
+  return {
+    timestamp: point.timestamp,
+    rating,
+    utility,
+    ...(point.expectedIndex === undefined ? {} : { expectedIndex: point.expectedIndex }),
+  };
 }
 
 function scoreIndoor(outdoor: Assessment, ski: Assessment, surf: Assessment): Assessment {
@@ -529,6 +600,49 @@ function pointsForDate<Observation extends string>(
   date: string,
 ): Point<Observation>[] {
   return points.filter((point) => point.timestamp.startsWith(`${date}T`));
+}
+
+function alignToExpectedSlots<Observation extends string>(
+  points: Point<Observation>[],
+  expectedSlots: readonly string[],
+): (Point<Observation> | undefined)[] {
+  const pointsByTimestamp = new Map<string, Point<Observation>[]>();
+  for (const point of points) {
+    const matches = pointsByTimestamp.get(point.timestamp) ?? [];
+    matches.push(point);
+    pointsByTimestamp.set(point.timestamp, matches);
+  }
+
+  return expectedSlots.map((timestamp, expectedIndex) => {
+    const point = pointsByTimestamp.get(timestamp)?.shift();
+    return point === undefined ? undefined : { ...point, expectedIndex };
+  });
+}
+
+function expectedHourlySlots(start: string, end: string, timeZone: string): string[] {
+  const formatter = new Intl.DateTimeFormat("en-CA-u-ca-iso8601-nu-latn", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const approximateStart = Date.parse(`${start}:00Z`) - 18 * 60 * 60 * 1_000;
+  const approximateEnd = Date.parse(`${end}:00Z`) + 18 * 60 * 60 * 1_000;
+  const slots: string[] = [];
+
+  for (let instant = approximateStart; instant <= approximateEnd; instant += 15 * 60 * 1_000) {
+    const parts = Object.fromEntries(
+      formatter.formatToParts(instant).map(({ type, value }) => [type, value]),
+    );
+    if (parts.minute !== "00") continue;
+    const local = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    if (local >= start && local <= end) slots.push(local);
+  }
+
+  return slots;
 }
 
 function hasValues<Observation extends string>(
@@ -733,7 +847,7 @@ function contiguousBlocks(hours: ScoredHour[], size: number): ScoredHour[][] {
   const blocks: ScoredHour[][] = [];
   for (let index = 0; index <= hours.length - size; index += 1) {
     const block = hours.slice(index, index + size);
-    if (block.slice(1).every((hour, offset) => isNextHour(block[offset]!.timestamp, hour.timestamp))) {
+    if (block.slice(1).every((hour, offset) => areConsecutive(block[offset]!, hour))) {
       blocks.push(block);
     }
   }
@@ -747,6 +861,16 @@ function inHourRange(timestamp: string, start: number, end: number): boolean {
 
 function isNextHour(left: string, right: string): boolean {
   return shiftHours(left, 1) === right;
+}
+
+function areConsecutive(
+  left: { timestamp: string; expectedIndex?: number },
+  right: { timestamp: string; expectedIndex?: number },
+): boolean {
+  if (left.expectedIndex !== undefined && right.expectedIndex !== undefined) {
+    return right.expectedIndex === left.expectedIndex + 1;
+  }
+  return isNextHour(left.timestamp, right.timestamp);
 }
 
 function shiftHours(timestamp: string, amount: number): string {

@@ -1092,6 +1092,25 @@ activity semantics
 
 The persisted forecast payload should therefore still not be finalised until the observation and synthesis requirements are clear.
 
+## 23 Advisory output — accepted direction, implementation deferred
+
+Activity ratings will remain coarse and will not expose detailed reasons for ordinary scoring outcomes.
+
+The final assessment should additionally expose sparse advisories where a categorical rating alone omits materially important interpretation context.
+
+Current intended advisory semantics are:
+
+- date-scoped advisories preserving the specific trigger for the global extreme-weather override, including extreme wind, blizzard-like conditions, heavy freezing rain, extreme heat, extreme cold and heavy-hail thunderstorm;
+- date-scoped SKIING_NO_SNOW when the skiing prerequisite is affirmatively absent;
+- date-scoped LARGE_SURF or NO_SURF where the recreational-surfer recommendation envelope is exceeded;
+- forecast/location-scoped SURFING_NOT_APPLICABLE when the full successful marine horizon establishes structural marine non-applicability.
+
+These are not general score explanations. Internal assessment classifications remain distinct from public advisories.
+
+The exact GraphQL shape, persisted representation, deduplication/aggregation rules and implementation are deliberately deferred to Spike 003, when the final assessment and durable snapshot model are defined.
+
+This decision does not change the current Spike 002 calibration oracle and is not part of the evaluator-driven evidence-sufficiency repair.
+
 ## 22. Evidence and references
 
 The activity methodology is informed by published work, but the service does not claim to implement any cited index verbatim.

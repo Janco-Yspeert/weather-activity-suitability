@@ -1,10 +1,14 @@
 # Spike 002 — v1 Calibration
 
-Status: ACCEPTED
+Status: ACCEPTED BASELINE; SUFFICIENCY AMENDMENT HUMAN ACCEPTED
 
-This revision closes the two aggregation gaps identified by brief-readiness:
+The accepted baseline closed the two aggregation gaps identified by brief-readiness:
 outdoor daily fallback ratings for thin usable-hour coverage, and skiing days
 with scorable `POOR` hours but no `FAIR`-or-better usable hours.
+
+This amendment refines surfing and skiing evidence sufficiency after
+human review of the Spike 002 evaluator finding. The human product decision is
+authorised.
 
 This file converts the calibration baselines in `../../decisions.md` and the
 Spike 002 brief into exact, executable v1 rules.
@@ -72,13 +76,30 @@ This calibration does not redefine `AVAILABLE`, `PARTIAL`, `NO_DATA` or
 
 Each activity has its own sufficiency rule below.
 
+For surfing and skiing, sufficiency has two distinct forms:
+
+- **Period sufficiency:** enough expected activity-period slots are scorable to
+  apply ordinary whole-period aggregation and to support conclusions about the
+  absence of useful opportunities or ordinary negative conditions.
+- **Opportunity sufficiency:** a complete minimum activity opportunity has
+  been directly observed and can support the activity-specific, conservatively
+  capped positive fallback even when period sufficiency is not met.
+
+Expected slots are derived from the destination-local activity period, not
+from weather or marine records returned by a source. A missing timestamp remains
+a missing expected slot; it does not shrink the denominator.
+
 A positive rating requires enough complete, timestamp-aligned observations to
-establish the opportunity being rated.
+establish the opportunity actually being rated. The wider unobserved period
+contributes no positive utility.
 
 A negative conclusion requires enough coverage of the relevant activity period
 to make the absence of a useful opportunity credible.
 
 A day is never rejected merely because it contains 23 or 25 local hours.
+
+These are activity-specific rules, not a universal sufficiency algorithm.
+Outdoor and indoor sightseeing retain their existing rules unchanged.
 
 ### 2.3 Missing values
 
@@ -88,6 +109,26 @@ An hourly activity observation is `scorable` only when all fields marked
 required for that activity/hour are present and finite.
 
 Optional modifiers may be omitted without making the hour unscorable.
+
+### 2.4 Missing-evidence invariant
+
+Removing observations must not make missing evidence behave as favourable
+weather.
+
+For a below-period-threshold positive fallback:
+
+- every contributing minimum opportunity must be fully observed;
+- missing or unscorable hours break contiguity and cannot be skipped;
+- the wider unobserved period contributes no positive utility;
+- multiple-opportunity or whole-day bonuses are unavailable;
+- the public result is conservatively capped; and
+- sparse ordinary adverse evidence cannot establish `POOR` or ordinary
+  `UNSUITABLE` for the day.
+
+`UNKNOWN` and `UNSUITABLE` remain outside the numeric utility scale. Global
+extreme-weather rules retain precedence. Full-horizon structural marine
+non-applicability and sufficiently evidenced no-snow prerequisite failure remain
+separate affirmative rules and are not partial-evidence fallbacks.
 
 ## 3. Global extreme-weather calibration
 
@@ -303,11 +344,21 @@ Surf-access period:
 Expected hourly surf slots are the hourly timestamps falling within that
 interval.
 
+The expected-slot set is derived from this destination-local solar access
+period independently of the timestamps returned by either source. The
+sufficiency denominator is the number of expected local hourly slots, not the
+number of weather or marine records returned.
+
 A target day requires at least `70%` of expected surf slots to be scorable to
 produce an ordinary daily surf rating.
 
-If fewer than `70%` are scorable, surfing is `UNKNOWN`, except where the
-full-horizon structural-null rule positively establishes non-applicability.
+At `>=70%` coverage, use the ordinary opportunity and daily aggregation rules
+in sections 5.8–5.11.
+
+Below `70%` coverage, use the partial-evidence rule in section 5.12. Do not
+infer a negative ordinary surf day from sparse adverse observations. Global
+extreme weather and full-horizon structural marine non-applicability retain
+precedence.
 
 ## 5.2 Wave-height component
 
@@ -457,7 +508,36 @@ coverage:
 - if every scorable surf hour is `UNSUITABLE`, daily surfing is `UNSUITABLE`;
 - otherwise daily surfing is `POOR`.
 
-## 5.12 Full-horizon structural marine null rule
+## 5.12 Partial-evidence surf fallback
+
+When fewer than `70%` of expected surf slots are scorable, first identify
+opportunities from the available aligned evidence using section 5.8. A valid
+opportunity still requires at least 2 contiguous scorable surfable hours at
+real consecutive local-hour slots. Missing or unscorable hours split an
+opportunity and cannot be skipped.
+
+If no complete 2-hour opportunity is observed, surfing is `UNKNOWN`. Sparse
+`POOR` or `UNSUITABLE` surf hours do not establish an ordinary negative daily
+result below the period-sufficiency threshold.
+
+If one or more complete opportunities are observed, retain only the best single
+opportunity according to the existing sort criteria. Do not use a second
+opportunity, a multi-opportunity bonus, or any assumption about the unobserved
+remainder of the day.
+
+Apply the existing single-opportunity mapping from section 5.11, then cap the
+partial-evidence daily result at `GOOD`:
+
+| Best complete observed opportunity | Duration | Partial-evidence daily rating |
+| ---------------------------------- | -------: | ----------------------------- |
+| `EXCELLENT`                        |  `>=2 h` | `GOOD`                        |
+| `GOOD`                             |  `>=3 h` | `GOOD`                        |
+| `GOOD`                             |    `2 h` | `FAIR`                        |
+| `FAIR`                             |  `>=2 h` | `FAIR`                        |
+
+No below-70%-coverage fallback can produce `EXCELLENT`.
+
+## 5.13 Full-horizon structural marine null rule
 
 Structural marine non-applicability is inferred only from the full successfully
 validated marine horizon, not from a single target day.
@@ -499,18 +579,32 @@ Ski activity period:
 
 `08:00–17:00 local time`.
 
+Expected ski-period slots are the destination-local hourly timestamps from
+08:00 through 17:00. This expected-slot set is derived independently of the
+records returned by the weather source. Missing timestamps remain missing
+expected slots and do not shrink either coverage denominator.
+
 For an ordinary daily skiing rating:
 
 - at least `70%` of expected ski-period hours must be scorable;
 - snow-depth observations must be present for at least `70%` of expected
   ski-period hours.
 
-If those conditions are not met, skiing is `UNKNOWN`, unless credible no-snow
-evidence is already sufficient to establish `UNSUITABLE`.
+When both conditions are met, use the ordinary whole-period rules in sections
+6.2–6.13.
+
+When ordinary scorable coverage is below `70%`, use the partial-evidence rule
+in section 6.14. Do not infer `POOR` or ordinary `UNSUITABLE` from sparse
+adverse weather observations. Credible no-snow evidence remains a separate
+higher-precedence prerequisite rule when snow-depth observations cover at
+least `70%` of expected ski-period slots.
 
 ## 6.2 Snow viability
 
-Use median snow depth across the scorable ski-period observations.
+For an ordinary whole-period rating, use median snow depth across the scorable
+ski-period observations. For the partial-evidence fallback, use median snow
+depth from the four fully observed hours in the candidate block as specified in
+section 6.14.
 
 | Median snow depth | Snow utility | Daily cap    |
 | ----------------- | -----------: | ------------ |
@@ -632,7 +726,7 @@ other vetoes.
 
 ## 6.10 Warm + marginal-snow interaction
 
-After the ordinary score:
+After an ordinary whole-period score with normal period sufficiency:
 
 - median ski-period temperature `>7 °C` with median snow depth `<0.15 m`
   caps the daily rating at `POOR`;
@@ -641,6 +735,10 @@ After the ordinary score:
 
 This is a product calibration for melt/marginal-snow interaction, not a snowpack
 simulation.
+
+Do not apply these wider-day median interactions to a partial-evidence fallback
+as though the unobserved ski period were complete. Temperature effects inside
+the observed candidate block remain part of ordinary hourly scoring.
 
 ## 6.11 Usable ski hour
 
@@ -663,6 +761,9 @@ category.
 The `bestSustainedBlock` is the highest-rated 4-hour block.
 
 ## 6.13 Daily ski aggregation
+
+This section applies only when the ordinary whole-period sufficiency rules in
+section 6.1 are met.
 
 Let:
 
@@ -693,6 +794,67 @@ Then apply:
 If no 4-hour block exists because required evidence is missing rather than
 because conditions are poor, return `UNKNOWN` under the sufficiency rule rather
 than `POOR`.
+
+## 6.14 Partial-evidence ski fallback
+
+When ordinary scorable coverage is below `70%`, search the observed evidence
+for complete 4-hour blocks of contiguous usable, scorable ski hours. All four
+hours must contain the required ski evidence. Missing or unscorable hours break
+contiguity and cannot be skipped.
+
+For each complete candidate block:
+
+- derive snow viability from the median snow depth observed within that block;
+- score its hours using the ordinary hourly weights, caps and vetoes;
+- average the four capped hourly utility scores, round to the nearest whole
+  point, and map to the ordinary block category; and
+- apply the partial-evidence snow-viability rule below.
+
+### Partial-evidence snow viability
+
+The partial-evidence fallback exists only to preserve a positively established
+ski opportunity. Block-local snow evidence below the ordinary period-sufficiency
+threshold must not establish a negative whole-day conclusion.
+
+Use the candidate block's median snow depth as follows:
+
+| Block median snow depth | Partial-evidence treatment                                                                                                                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<0.01 m`               | Cannot support the positive fallback. Return `UNKNOWN` unless the independent no-snow prerequisite rule is satisfied by snow-depth evidence covering at least `70%` of expected ski-period slots, in which case skiing is `UNSUITABLE`. |
+| `0.01–<0.05 m`          | Cannot support the positive fallback because ordinary snow viability would be only `POOR`. Return `UNKNOWN`.                                                                                                                            |
+| `0.05–<0.15 m`          | May support the fallback, but the final partial-evidence daily rating is capped at `FAIR`.                                                                                                                                              |
+| `0.15–<0.30 m`          | May support the fallback, with the final partial-evidence daily rating capped at `GOOD`.                                                                                                                                                |
+| `>=0.30 m`              | May support the fallback without an additional snow-depth cap; the general partial-evidence maximum of `GOOD` still applies.                                                                                                            |
+
+A candidate block whose snow evidence cannot support the positive fallback is
+not treated as evidence for a `POOR` or `UNSUITABLE` day. Under partial coverage,
+it instead leaves the daily result `UNKNOWN`, unless an independently
+sufficient prerequisite or global rule establishes `UNSUITABLE`.
+
+Use only the best complete observed four-hour block. The unobserved remainder
+of the ski period contributes no positive utility. Do not apply usable-fraction
+bonuses or wider-day aggregate modifiers such as median ski-period temperature.
+
+For a candidate block that survives the partial-evidence snow-viability rule,
+map the block conservatively:
+
+| Best complete observed block | Partial-evidence daily rating |
+| ---------------------------- | ----------------------------- |
+| `EXCELLENT`                  | `GOOD`                        |
+| `GOOD`                       | `FAIR`                        |
+| `FAIR`                       | `FAIR`                        |
+
+Apply the snow-depth cap above after this mapping. No below-70%-coverage
+fallback can produce `EXCELLENT`.
+
+If no complete qualifying 4-hour block exists, skiing is `UNKNOWN`. Sparse
+`POOR` or `UNSUITABLE` ski hours do not establish an ordinary negative daily
+result below the period-sufficiency threshold.
+
+Global extreme weather retains precedence. Separately, if snow-depth evidence
+covers at least `70%` of expected ski-period slots and its median establishes
+snow depth `<0.01 m`, the existing no-snow prerequisite rule still makes skiing
+`UNSUITABLE` even when other ordinary ski evidence is incomplete.
 
 ---
 
@@ -816,7 +978,7 @@ requirement unless a test specifically targets a weighting boundary.
    daily `GOOD`.
 
 9. One >=4-hour `EXCELLENT` opportunity:
-   daily `EXCELLENT`.
+   with at least 70% whole-period coverage, daily `EXCELLENT`.
 
 10. Full marine horizon null for wave height, swell period and combined period:
     structural `UNSUITABLE`.
@@ -826,6 +988,27 @@ requirement unless a test specifically targets a weighting boundary.
 
 12. Marine provider failure:
     `UNKNOWN`.
+
+13. Solar access spans the ordinary day, but only two aligned, complete,
+    `EXCELLENT` surf hours at 09:00 and 10:00 are present. Whole-period
+    coverage is below 70%: daily `GOOD`.
+
+14. The same below-70% case with a 2-hour `GOOD` opportunity: daily `FAIR`.
+
+15. Only one `EXCELLENT` surf hour exists below 70% coverage: `UNKNOWN`.
+
+16. Four contiguous `EXCELLENT` surf hours exist below 70% coverage: daily
+    `GOOD`, not `EXCELLENT`.
+
+17. Sparse observed surf hours are all `POOR` or `UNSUITABLE`, coverage is
+    below 70%, and structural non-applicability is not established: `UNKNOWN`.
+
+18. Full-horizon structural marine null evidence remains `UNSUITABLE`.
+
+19. Provider failure remains `UNKNOWN`.
+
+20. At `>=70%` coverage, the ordinary daily surf aggregation in section 5.11
+    applies unchanged.
 
 ## 8.3 Skiing
 
@@ -859,6 +1042,58 @@ requirement unless a test specifically targets a weighting boundary.
 10. > 7 °C median temperature with <0.15 m snow:
     > daily cap `POOR`.
 
+11. Only four complete contiguous `EXCELLENT` ski hours at 08:00–11:00 are
+    observed with strong snow evidence such as 0.4 m, while wider ski-period
+    coverage is below 70%: daily `GOOD`, not `EXCELLENT`.
+
+12. Four complete contiguous `GOOD` ski hours are observed below 70% wider
+    coverage: daily `FAIR`.
+
+13. Only three `EXCELLENT` ski hours are observed below 70% coverage:
+    `UNKNOWN`.
+
+14. Sparse observed ski hours are all `POOR` or `UNSUITABLE`, ordinary
+    coverage is below 70%, and no independently sufficient prerequisite
+    failure exists: `UNKNOWN`.
+
+15. Snow-depth evidence covering at least 70% of expected ski-period slots and
+    establishing effectively no snow remains `UNSUITABLE` even when other
+    ordinary ski evidence is incomplete.
+
+16. At `>=70%` ordinary coverage, the existing whole-period ski aggregation in
+    section 6.13 applies unchanged.
+
+17. Partial-evidence examples 11 and 12 assume that the complete observed
+    four-hour block also satisfies the partial-evidence snow-viability rule in
+    section 6.14. A complete block does not by itself establish a positive ski
+    opportunity if its block-local snow depth is too low.
+
+18. Four otherwise `EXCELLENT` contiguous ski hours with block median snow
+    depth `<0.01 m`, while snow-depth coverage for the wider ski period is below
+    `70%`: `UNKNOWN`, not `UNSUITABLE`. The block cannot support the positive
+    fallback, and the independent no-snow prerequisite has not been
+    sufficiently evidenced.
+
+19. Four otherwise `EXCELLENT` contiguous ski hours with block median snow
+    depth `0.01–<0.05 m`, while wider ski-period coverage is below `70%`:
+    `UNKNOWN`, not `POOR`. The observed block's snow viability is too weak to
+    establish a positive minimum opportunity, while sparse evidence is
+    insufficient for a negative whole-day conclusion.
+
+20. Four otherwise `EXCELLENT` contiguous ski hours with block median snow
+    depth `0.05–<0.15 m`, while wider ski-period coverage is below `70%`:
+    daily `FAIR`. The positive fallback is available, but the block-local
+    snow-viability cap applies.
+
+21. Four otherwise `EXCELLENT` contiguous ski hours with block median snow
+    depth `0.15–<0.30 m`, while wider ski-period coverage is below `70%`:
+    daily `GOOD`.
+
+22. Four otherwise `EXCELLENT` contiguous ski hours with block median snow
+    depth `>=0.30 m`, while wider ski-period coverage is below `70%`:
+    daily `GOOD`, not `EXCELLENT`, because the general partial-evidence cap
+    still applies.
+
 ## 8.4 Indoor sightseeing
 
 1. Outdoor sightseeing `EXCELLENT`, surf/ski unavailable:
@@ -890,3 +1125,22 @@ The amendment must record:
 
 After evaluator preparation, changing any threshold, cap, veto, sufficiency rule
 or aggregation mapping in this file is a contract change.
+
+## sufficiency amendment record - ACCEPTED
+
+- **Scenario:** evaluator verification showed that deriving expected coverage
+  from returned records lets two surf hours or four ski hours appear to be 100%
+  of their activity periods.
+- **Old rule:** missing returned timestamps could shrink the denominator in
+  implementation, and the accepted calibration required `UNKNOWN` whenever
+  ordinary surf/ski coverage was below 70% (apart from the existing affirmative
+  overrides).
+- **New rule:** expected slots come from the destination-local activity period.
+  Below 70%, a fully observed minimum surf or ski opportunity may support the
+  activity-specific capped positive fallback; sparse evidence cannot support
+  ordinary negative conclusions.
+- **Why semantics remain coherent:** this makes missing evidence non-favourable
+  while preserving the Spike 002 brief's original distinction between proving
+  that a useful opportunity exists and proving that no useful opportunity
+  exists. Global extremes, structural marine absence and credible no-snow
+  evidence retain precedence.

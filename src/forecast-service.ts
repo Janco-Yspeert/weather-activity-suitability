@@ -87,7 +87,12 @@ export class ForecastService {
     const location = await this.provider.resolveLocation(normalizedQuery);
     const dates = getTargetDates(this.clock(), location.timezone);
     const sources = await this.refresh(location);
-    const activities = scoreActivities(sources.weather, sources.marine, dates);
+    const activities = scoreActivities(
+      sources.weather,
+      sources.marine,
+      dates,
+      location.timezone,
+    );
 
     return {
       metadata: {

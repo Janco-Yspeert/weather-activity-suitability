@@ -11,11 +11,19 @@ scenarios. Spike 001's public contracts for location identity, seven
 destination-local dates, independent sources, source metadata, provider
 validation, GraphQL alignment and refresh coalescing remain inherited.
 
-No Spike 002 candidate implementation or developer tests were read or run when
-preparing this plan. No evaluator-authored executable checks are declared:
-although the inherited `ForecastService` provider/clock construction seam is a
-fair controlled-input seam, a prewritten suite would largely duplicate the
-accepted calibration tables and risk coupling to an unfinished forecast shape.
+This plan supersedes the earlier prepared oracle because the human-accepted
+sufficiency amendment changed observable surf and ski behavior below 70%
+whole-period coverage. That earlier oracle is `CONTRACT_CHANGED`: its blanket
+expectation of `UNKNOWN` below 70% is no longer authoritative. The historical
+`evaluation-result.md` remains evidence of the denominator defect and is not
+rewritten by this preparation.
+
+No current Spike 002 candidate implementation or developer tests were read or
+run during this re-preparation. No evaluator-authored executable checks are
+declared: although the inherited `ForecastService` provider/clock construction
+seam is a fair controlled-input seam, a prewritten suite would largely
+duplicate the accepted calibration tables and risk coupling to an unfinished
+forecast shape.
 The procedures below use that public service boundary (or its GraphQL result)
 with deterministic provider responses at verification time. They do not require
 particular scorer functions, modules, DTO types or data structures.
@@ -83,11 +91,16 @@ inspected only where needed to establish the indoor rule's observable outcome.
 - **Evidence mode:** automated deterministic procedure plus GraphQL check.
 - **Procedure:** Produce independently successful, partial, all-null and
   failed weather/marine responses. Then omit required activity fields or slots
-  while leaving the weak source coverage rule satisfied.
+  while leaving the weak source coverage rule satisfied. For surf and ski,
+  calculate coverage against the expected destination-local activity-period
+  slots rather than the timestamps returned by the fixture.
 - **Expected result:** source metadata remains `AVAILABLE`, `PARTIAL`,
   `NO_DATA`, or `UNAVAILABLE` by the inherited definition, distinct from
   activity sufficiency. Unsupported activity conclusions are `UNKNOWN`, never
   favourable-by-default or `UNSUITABLE` merely from failure/missing evidence.
+  Removing observations does not shrink a surf/ski denominator, bridge a
+  missing hour, create an extra opportunity, or let the unobserved remainder
+  contribute positive utility.
   GraphQL retains seven chronological dates and four date-aligned categorical
   arrays with real scoring results rather than unconditional placeholders.
 - **Negative/boundary probes:** a successful full-horizon all-null marine
@@ -120,28 +133,40 @@ inspected only where needed to establish the indoor rule's observable outcome.
 - **Why sufficient:** falsifies temporal synthesis, non-compensation and the
   explicit calibration, rather than asserting a particular window algorithm.
 
-### EVAL-05 — Surf sessions use aligned daylight evidence and discrete opportunities
+### EVAL-05 — Surf period and opportunity sufficiency use the expected solar timeline
 
 - **Evidence mode:** automated deterministic procedure.
 - **Procedure:** With supplied local sunrise/sunset, construct surf access slots
   and execute calibration scenarios: 1.2 m/12 s/11 s/8 km/h; same with 6 s
   swell; a 14 s/8 s mixed-period case; 35 km/h wind; >=4 m waves; overlapping
   good 2-hour slices in one run; separated morning/evening runs; one 2-hour
-  excellent run; and one >=4-hour excellent run. Verify 70% same-timestamp
-  coverage before ordinary aggregation.
+  excellent run; and one >=4-hour excellent run. Verify the 70% denominator is
+  every expected local hourly slot from sunrise minus 90 minutes through sunset
+  plus 60 minutes, independently of which records were returned.
 - **Expected result:** period/wind/chop changes produce the documented relative
   outcomes; mixed sea is penalised but not vetoed solely by its ratio; large
   waves receive the explicit veto; overlapping slices are one maximal
-  opportunity; distinct runs are two; a single 2-hour excellent opportunity
-  is daily `GOOD`, and a >=4-hour excellent opportunity is daily `EXCELLENT`.
-  Night-only excellent conditions outside the solar access period cannot make
-  an excellent day.
-- **Negative/boundary probes:** below 70% scorable slots is `UNKNOWN`; a
-  missing solar endpoint is `UNKNOWN`; a `POOR`, unsuitable, missing or
-  unscorable slot splits an opportunity; exact chop, wave, wind and period
-  thresholds follow the calibration table.
+  opportunity; and distinct runs are two only when the evidence actually
+  establishes them. At >=70% coverage, ordinary aggregation remains unchanged:
+  a single 2-hour excellent opportunity is daily `GOOD`, while a single >=4-hour
+  excellent opportunity is daily `EXCELLENT`. Night-only excellent conditions
+  outside the solar access period cannot make an excellent day.
+- **Negative/boundary probes:** With whole-period coverage below 70%, supply
+  only aligned 09:00 and 10:00 observations and keep the wider expected solar
+  period intact: a complete `EXCELLENT` opportunity must yield `GOOD`, and a
+  two-hour `GOOD` opportunity must yield `FAIR`; a >=3-hour `GOOD` opportunity
+  must yield `GOOD`; and a valid `FAIR` opportunity must yield `FAIR`. One
+  excellent hour must yield `UNKNOWN`; four contiguous excellent hours must
+  yield `GOOD`, not `EXCELLENT`; and sparse `POOR`/`UNSUITABLE` observations
+  must yield `UNKNOWN`.
+  Insert a missing local-hour slot between favourable observations to prove it
+  breaks contiguity and cannot be skipped. Supply two observed opportunities
+  below 70% to prove only the best single opportunity is used, with no second-
+  opportunity bonus. A missing solar endpoint remains `UNKNOWN`; exact chop,
+  wave, wind and period thresholds follow the calibration table.
 - **Why sufficient:** checks the public session semantics and aggregation with
-  simultaneous source data, without requiring a particular opportunity class.
+  simultaneous source data, and directly falsifies the returned-record
+  denominator defect without requiring a particular opportunity class.
 
 ### EVAL-06 — Surf non-applicability requires complete structural evidence
 
@@ -161,7 +186,7 @@ inspected only where needed to establish the indoor rule's observable outcome.
   evidence from failed/incomplete evidence, the easy place for semantics to
   rot into nonsense.
 
-### EVAL-07 — Skiing treats snow as a sufficient prerequisite and needs sustained opportunity
+### EVAL-07 — Ski period and opportunity sufficiency preserve the snow prerequisite
 
 - **Evidence mode:** automated deterministic procedure.
 - **Procedure:** Use 08:00–17:00 local periods to test the accepted ski
@@ -170,19 +195,37 @@ inspected only where needed to establish the indoor rule's observable outcome.
   0.05–<0.15 m snow; only two excellent hours; four contiguous strong hours;
   3+3 good hours split by poor conditions; rain >2 mm/h; 35–45 km/h sustained
   wind; and >7 C median with <0.15 m snow. Check weather fields are all
-  required, except optional cloud-weight renormalisation.
+  required, except optional cloud-weight renormalisation. Compute both ordinary
+  scorable coverage and snow-depth coverage against the ten expected local
+  slots from 08:00 through 17:00, not the records returned.
 - **Expected result:** substantial snow can support `EXCELLENT`; credible
   no-snow is `UNSUITABLE`; insufficient snow evidence is `UNKNOWN`; marginal
   snow cannot exceed `FAIR`; isolated excellent hours cannot produce
   GOOD/EXCELLENT; a sustained block can; split runs are worse than an
   equivalent continuous run; rain vetoes its hour; strong wind materially
-  degrades; warm marginal snow caps the day at `POOR`.
-- **Negative/boundary probes:** check 70% coverage and exact snow/rain/wind/
-  visibility bands, no-usable but scorable-POOR fallback, all-scorable-
-  unsuitable fallback, and a missing-required-evidence case that must not be
-  relabelled `POOR`. Confirm no elevation/resort availability gate exists.
+  degrades; warm marginal snow caps the day at `POOR` when ordinary period
+  sufficiency exists.
+- **Negative/boundary probes:** Below 70% ordinary coverage, supply only four
+  contiguous complete usable hours. An `EXCELLENT` block with >=0.30 m block-
+  median snow must yield daily `GOOD`; `GOOD` and `FAIR` blocks must each yield
+  `FAIR`; three excellent hours must yield `UNKNOWN`; and sparse `POOR`/
+  `UNSUITABLE` hours must yield `UNKNOWN`. A missing/unscorable hour must split
+  the block and may not be skipped. For otherwise excellent four-hour blocks,
+  verify block-median snow `<0.01 m` yields `UNKNOWN` when wider snow evidence
+  is below 70%,
+  `0.01–<0.05 m` yields `UNKNOWN`, `0.05–<0.15 m` yields `FAIR`,
+  `0.15–<0.30 m` yields `GOOD`, and `>=0.30 m` yields `GOOD`, never
+  `EXCELLENT`. Verify the incomplete wider day supplies neither a usable-
+  fraction bonus nor whole-period median-temperature modifier. Separately,
+  >=70% snow-depth coverage with median `<0.01 m` remains `UNSUITABLE` even
+  when other ski evidence is incomplete. Also check exact ordinary 70%
+  coverage and snow/rain/wind/visibility bands, ordinary no-usable but
+  scorable-`POOR` and all-scorable-`UNSUITABLE` fallbacks, and confirm no
+  elevation/resort availability gate exists.
 - **Why sufficient:** challenges both snow prerequisite semantics and temporal
-  aggregation without inspecting a private score representation.
+  aggregation, directly tests the returned-record denominator defect, and
+  distinguishes block-local positive evidence from whole-period negative
+  evidence without inspecting a private score representation.
 
 ### EVAL-08 — Indoor assessment honours reasoned opportunity cost
 

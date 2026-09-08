@@ -12,6 +12,12 @@ Status: READY
   destination-local hourly timestamps and values kept aligned by index/time;
   solar values are keyed to their destination-local date. Provider field names
   and Open-Meteo DTOs do not cross this boundary.
+- Surf and ski scoring derive their expected destination-local hourly slots
+  from the applicable activity period independently of returned observations.
+  The scoring boundary must therefore retain enough local date, time-zone, and
+  solar context to construct that timeline; an absent observation remains a
+  missing expected slot rather than removing the slot from the denominator or
+  joining observations across the gap.
 - The canonical marine forecast retains the whole successfully validated fetched
   horizon, not only the seven target dates, so the structural-all-null surf
   rule can be evaluated without confusing a null target date with
