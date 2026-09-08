@@ -44,7 +44,19 @@ describe("Open-Meteo live integration", () => {
 
   it("returns usable weather data covering the target forecast window", async () => {
     const location = await client.resolveLocation("Cape Town");
-    const forecast = await client.fetchWeather(location, ["airTemperature"]);
+    const forecast = await client.fetchWeather(location, [
+      "airTemperature",
+      "apparentTemperature",
+      "precipitation",
+      "rain",
+      "snowfall",
+      "snowDepth",
+      "windSpeed",
+      "windGust",
+      "visibility",
+      "weatherCode",
+      "cloudCover",
+    ]);
 
     expect(forecast.localTimestamps.length).toBeGreaterThan(0);
     expect(forecast.observations.airTemperature.length).toBe(
@@ -63,12 +75,17 @@ describe("Open-Meteo live integration", () => {
 
     for (const date of targetDates) {
       expect(returnedDates.has(date)).toBe(true);
+      expect(forecast.solarDays?.some((day) => day.date === date)).toBe(true);
     }
   });
 
   it("returns usable marine data for Cape Town", async () => {
     const location = await client.resolveLocation("Cape Town");
-    const forecast = await client.fetchMarine(location, ["waveHeight"]);
+    const forecast = await client.fetchMarine(location, [
+      "waveHeight",
+      "swellPeriod",
+      "wavePeriod",
+    ]);
 
     expect(forecast.localTimestamps.length).toBeGreaterThan(0);
     expect(forecast.observations.waveHeight.length).toBe(
@@ -78,6 +95,12 @@ describe("Open-Meteo live integration", () => {
     expect(
       forecast.observations.waveHeight.some((value) => value !== null),
     ).toBe(true);
+    expect(forecast.observations.swellPeriod).toHaveLength(
+      forecast.localTimestamps.length,
+    );
+    expect(forecast.observations.wavePeriod).toHaveLength(
+      forecast.localTimestamps.length,
+    );
 
     const targetDates = getTargetDates(new Date(), location.timezone);
 

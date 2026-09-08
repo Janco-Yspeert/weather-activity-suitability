@@ -11,12 +11,30 @@ export interface ResolvedLocation {
   admin1?: string;
 }
 
-export type WeatherObservation = "airTemperature";
-export type MarineObservation = "waveHeight";
+export type WeatherObservation =
+  | "airTemperature"
+  | "apparentTemperature"
+  | "precipitation"
+  | "rain"
+  | "snowfall"
+  | "snowDepth"
+  | "windSpeed"
+  | "windGust"
+  | "visibility"
+  | "weatherCode"
+  | "cloudCover";
+export type MarineObservation = "waveHeight" | "swellPeriod" | "wavePeriod";
+
+export interface SolarDay {
+  date: string;
+  sunrise: string | null;
+  sunset: string | null;
+}
 
 export interface SourceForecast<Observation extends string = string> {
   localTimestamps: readonly string[];
   observations: Readonly<Record<Observation, readonly (number | null)[]>>;
+  solarDays?: readonly SolarDay[];
 }
 
 type Fetcher = (url: string) => Promise<Response>;
@@ -33,9 +51,21 @@ const POPULATED_PLACE_CODES = new Set([
 ]);
 const WEATHER_FIELDS: Record<WeatherObservation, string> = {
   airTemperature: "temperature_2m",
+  apparentTemperature: "apparent_temperature",
+  precipitation: "precipitation",
+  rain: "rain",
+  snowfall: "snowfall",
+  snowDepth: "snow_depth",
+  windSpeed: "wind_speed_10m",
+  windGust: "wind_gusts_10m",
+  visibility: "visibility",
+  weatherCode: "weather_code",
+  cloudCover: "cloud_cover",
 };
 const MARINE_FIELDS: Record<MarineObservation, string> = {
   waveHeight: "wave_height",
+  swellPeriod: "swell_wave_period",
+  wavePeriod: "wave_period",
 };
 
 const timezoneSchema = z
@@ -112,27 +142,29 @@ export class OpenMeteoClient {
     return mapLocation(match);
   }
 
-  async fetchWeather(
+  async fetchWeather<Observation extends WeatherObservation>(
     location: ResolvedLocation,
-    observations: readonly WeatherObservation[],
-  ): Promise<SourceForecast<WeatherObservation>> {
+    observations: readonly Observation[],
+  ): Promise<SourceForecast<Observation>> {
     return this.fetchSource(
       "https://api.open-meteo.com/v1/forecast",
       location,
       observations,
       WEATHER_FIELDS,
+      true,
     );
   }
 
-  async fetchMarine(
+  async fetchMarine<Observation extends MarineObservation>(
     location: ResolvedLocation,
-    observations: readonly MarineObservation[],
-  ): Promise<SourceForecast<MarineObservation>> {
+    observations: readonly Observation[],
+  ): Promise<SourceForecast<Observation>> {
     return this.fetchSource(
       "https://marine-api.open-meteo.com/v1/marine",
       location,
       observations,
       MARINE_FIELDS,
+      false,
     );
   }
 
@@ -141,6 +173,7 @@ export class OpenMeteoClient {
     location: ResolvedLocation,
     observations: readonly Observation[],
     providerFields: Readonly<Record<Observation, string>>,
+    includeSolar: boolean,
   ): Promise<SourceForecast<Observation>> {
     if (observations.length === 0)
       throw new Error("At least one observation must be requested");
@@ -154,6 +187,9 @@ export class OpenMeteoClient {
       timezone: location.timezone,
       hourly: requestedFields.join(","),
       forecast_hours: "195",
+      ...(includeSolar
+        ? { daily: "sunrise,sunset", forecast_days: "8" }
+        : {}),
     }).toString();
     const body = await this.requestJson(url);
     return parseSourceResponse(
@@ -161,6 +197,7 @@ export class OpenMeteoClient {
       location.timezone,
       observations,
       providerFields,
+      includeSolar,
     );
   }
 
@@ -254,6 +291,7 @@ function parseSourceResponse<Observation extends string>(
   expectedTimezone: string,
   requestedObservations: readonly Observation[],
   providerFields: Readonly<Record<Observation, string>>,
+  includeSolar: boolean,
 ): SourceForecast<Observation> {
   const requestedFields = requestedObservations.map(
     (observation) => providerFields[observation],
@@ -285,9 +323,39 @@ function parseSourceResponse<Observation extends string>(
         }
       }
     });
+  const dailySchema = z
+    .object({
+      time: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+      sunrise: z.array(z.string().refine(isValidTimestamp).nullable()),
+      sunset: z.array(z.string().refine(isValidTimestamp).nullable()),
+    })
+    .superRefine((daily, context) => {
+      for (const field of ["sunrise", "sunset"] as const) {
+        if (daily[field].length !== daily.time.length) {
+          context.addIssue({
+            code: "custom",
+            path: [field],
+            message: "Solar and date arrays must be aligned",
+          });
+        }
+      }
+      daily.time.forEach((date, index) => {
+        for (const field of ["sunrise", "sunset"] as const) {
+          const timestamp = daily[field][index];
+          if (timestamp !== null && timestamp !== undefined && !timestamp.startsWith(`${date}T`)) {
+            context.addIssue({
+              code: "custom",
+              path: [field, index],
+              message: "Solar timestamp must match its local date",
+            });
+          }
+        }
+      });
+    });
   const sourceResponseSchema = z.object({
     timezone: z.literal(expectedTimezone),
     hourly: hourlySchema,
+    ...(includeSolar ? { daily: dailySchema } : {}),
   });
   const response = parseProviderResponse(
     sourceResponseSchema,
@@ -306,7 +374,22 @@ function parseSourceResponse<Observation extends string>(
     )[];
   }
 
-  return { localTimestamps: hourly.time, observations };
+  if (!includeSolar) return { localTimestamps: hourly.time, observations };
+
+  const daily = response.daily as {
+    time: string[];
+    sunrise: (string | null)[];
+    sunset: (string | null)[];
+  };
+  return {
+    localTimestamps: hourly.time,
+    observations,
+    solarDays: daily.time.map((date, index) => ({
+      date,
+      sunrise: daily.sunrise[index] ?? null,
+      sunset: daily.sunset[index] ?? null,
+    })),
+  };
 }
 
 function isValidTimezone(value: string): boolean {

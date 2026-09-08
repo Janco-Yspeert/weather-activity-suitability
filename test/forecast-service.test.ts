@@ -41,7 +41,7 @@ function sourceForecast(
 }
 
 describe("ForecastService", () => {
-  it("reports independent source availability and aligned UNKNOWN placeholders", async () => {
+  it("preserves source availability when evidence is insufficient for scoring", async () => {
     const fetchWeather = vi.fn(async () =>
       sourceForecast("airTemperature", ["2026-09-06", ...targetDates, "2026-09-14"]),
     );
@@ -67,8 +67,24 @@ describe("ForecastService", () => {
       weather: { state: "AVAILABLE", coveredDates: targetDates },
       marine: { state: "PARTIAL", coveredDates: ["2026-09-07", "2026-09-09"] },
     });
-    expect(fetchWeather).toHaveBeenCalledWith(capeTown, ["airTemperature"]);
-    expect(fetchMarine).toHaveBeenCalledWith(capeTown, ["waveHeight"]);
+    expect(fetchWeather).toHaveBeenCalledWith(capeTown, [
+      "airTemperature",
+      "apparentTemperature",
+      "precipitation",
+      "rain",
+      "snowfall",
+      "snowDepth",
+      "windSpeed",
+      "windGust",
+      "visibility",
+      "weatherCode",
+      "cloudCover",
+    ]);
+    expect(fetchMarine).toHaveBeenCalledWith(capeTown, [
+      "waveHeight",
+      "swellPeriod",
+      "wavePeriod",
+    ]);
     expect(result.skiing).toEqual(Array(7).fill("UNKNOWN"));
     expect(result.surfing).toEqual(result.skiing);
     expect(result.outdoorSightseeing).toEqual(result.skiing);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { ForecastService, type ForecastProvider } from "../src/forecast-service.js";
 import { createSchema } from "../src/graphql.js";
+import type { SourceForecast } from "../src/open-meteo.js";
 
 describe("forecast GraphQL contract", () => {
   it("exposes the resolved location, target dates, metadata, and aligned ratings", async () => {
@@ -28,7 +29,7 @@ describe("forecast GraphQL contract", () => {
           "2026-09-13T00:00",
         ],
         observations: { airTemperature: [1, 1, 1, 1, 1, 1, 1] },
-      }),
+      }) as SourceForecast,
       fetchMarine: async () => ({
         localTimestamps: [
           "2026-09-07T00:00",
@@ -40,7 +41,7 @@ describe("forecast GraphQL contract", () => {
           "2026-09-13T00:00",
         ],
         observations: { waveHeight: [null, null, null, null, null, null, null] },
-      }),
+      }) as SourceForecast,
     };
     const schema = createSchema(new ForecastService(provider, () => new Date("2026-09-06T10:00:00.000Z")));
 

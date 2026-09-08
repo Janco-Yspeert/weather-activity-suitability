@@ -205,6 +205,9 @@ That spike will determine, for each activity:
 
 This sequencing is deliberate. The product meaning is fixed first; the detailed heuristic and persistent payload are defined only once there is enough information to make those choices responsibly.
 
+The v1 activity methodology is defined by `spikes/002-activity-scoring/brief.md`. Its accepted calibration contract is `spikes/002-activity-scoring/calibration.md`, which fixes the
+executable v1 scoring values and boundary scenarios.
+
 ## Submission and delivery
 
 The completed work will be submitted as a public GitHub repository.

@@ -1,4 +1,8 @@
 import { getTargetDates, type LocalDate } from "./forecast-policy.js";
+import {
+  scoreActivities,
+  type ActivityRating,
+} from "./activity-scoring.js";
 import { ProviderError } from "./open-meteo.js";
 import type {
   MarineObservation,
@@ -9,9 +13,21 @@ import type {
 
 const REQUIRED_WEATHER_OBSERVATIONS = [
   "airTemperature",
+  "apparentTemperature",
+  "precipitation",
+  "rain",
+  "snowfall",
+  "snowDepth",
+  "windSpeed",
+  "windGust",
+  "visibility",
+  "weatherCode",
+  "cloudCover",
 ] as const satisfies readonly WeatherObservation[];
 const REQUIRED_MARINE_OBSERVATIONS = [
   "waveHeight",
+  "swellPeriod",
+  "wavePeriod",
 ] as const satisfies readonly MarineObservation[];
 
 export interface ForecastProvider {
@@ -26,13 +42,7 @@ export interface ForecastProvider {
   ): Promise<SourceForecast<MarineObservation>>;
 }
 
-export type ActivityRating =
-  | "UNKNOWN"
-  | "UNSUITABLE"
-  | "POOR"
-  | "FAIR"
-  | "GOOD"
-  | "EXCELLENT";
+export type { ActivityRating } from "./activity-scoring.js";
 export type SourceState = "AVAILABLE" | "PARTIAL" | "NO_DATA" | "UNAVAILABLE";
 
 export interface SourceAvailability {
@@ -77,7 +87,7 @@ export class ForecastService {
     const location = await this.provider.resolveLocation(normalizedQuery);
     const dates = getTargetDates(this.clock(), location.timezone);
     const sources = await this.refresh(location);
-    const placeholders = (): ActivityRating[] => dates.map(() => "UNKNOWN");
+    const activities = scoreActivities(sources.weather, sources.marine, dates);
 
     return {
       metadata: {
@@ -86,10 +96,7 @@ export class ForecastService {
       },
       location,
       dates,
-      skiing: placeholders(),
-      surfing: placeholders(),
-      outdoorSightseeing: placeholders(),
-      indoorSightseeing: placeholders(),
+      ...activities,
     };
   }
 

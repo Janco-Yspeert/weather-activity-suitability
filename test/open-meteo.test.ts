@@ -135,6 +135,11 @@ describe("OpenMeteoClient", () => {
           time: ["2026-09-07T00:00", "2026-09-07T01:00"],
           temperature_2m: [12.3, null],
         },
+        daily: {
+          time: ["2026-09-07"],
+          sunrise: ["2026-09-07T06:35"],
+          sunset: ["2026-09-07T18:22"],
+        },
       }),
     );
     const client = new OpenMeteoClient(fetch);
@@ -153,6 +158,13 @@ describe("OpenMeteoClient", () => {
     ).resolves.toEqual({
       localTimestamps: ["2026-09-07T00:00", "2026-09-07T01:00"],
       observations: { airTemperature: [12.3, null] },
+      solarDays: [
+        {
+          date: "2026-09-07",
+          sunrise: "2026-09-07T06:35",
+          sunset: "2026-09-07T18:22",
+        },
+      ],
     });
 
     const requestedUrl = new URL(fetch.mock.calls[0]![0] as string);
@@ -160,7 +172,63 @@ describe("OpenMeteoClient", () => {
       "Africa/Johannesburg",
     );
     expect(requestedUrl.searchParams.get("forecast_hours")).toBe("195");
+    expect(requestedUrl.searchParams.get("forecast_days")).toBe("8");
     expect(requestedUrl.searchParams.get("hourly")).toBe("temperature_2m");
+    expect(requestedUrl.searchParams.get("daily")).toBe("sunrise,sunset");
+  });
+
+  it("translates the complete application-owned v1 observation set", async () => {
+    const fetch = vi.fn(async (_url: string) =>
+      jsonResponse({
+        timezone: "Africa/Johannesburg",
+        hourly: {
+          time: ["2026-09-07T12:00"],
+          temperature_2m: [18],
+          apparent_temperature: [18],
+          precipitation: [0],
+          rain: [0],
+          snowfall: [0],
+          snow_depth: [0],
+          wind_speed_10m: [12],
+          wind_gusts_10m: [20],
+          visibility: [10000],
+          weather_code: [0],
+          cloud_cover: [15],
+        },
+        daily: {
+          time: ["2026-09-07"],
+          sunrise: ["2026-09-07T06:35"],
+          sunset: ["2026-09-07T18:22"],
+        },
+      }),
+    );
+    const client = new OpenMeteoClient(fetch);
+
+    const result = await client.fetchWeather(capeTown(), [
+      "airTemperature",
+      "apparentTemperature",
+      "precipitation",
+      "rain",
+      "snowfall",
+      "snowDepth",
+      "windSpeed",
+      "windGust",
+      "visibility",
+      "weatherCode",
+      "cloudCover",
+    ]);
+
+    expect(result.observations).toMatchObject({
+      airTemperature: [18],
+      apparentTemperature: [18],
+      rain: [0],
+      snowDepth: [0],
+      windGust: [20],
+      weatherCode: [0],
+    });
+    expect(new URL(fetch.mock.calls[0]![0]).searchParams.get("hourly")).toBe(
+      "temperature_2m,apparent_temperature,precipitation,rain,snowfall,snow_depth,wind_speed_10m,wind_gusts_10m,visibility,weather_code,cloud_cover",
+    );
   });
 
   it("translates application-selected marine observations and maps nullable data", async () => {
