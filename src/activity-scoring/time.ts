@@ -1,61 +1,32 @@
-// Match repeated local timestamps by occurrence, retaining their separate
-// expected indices across a fall-back DST transition.
 export function alignToExpectedSlots<Hour extends { timestamp: string }>(
   points: Hour[],
   expectedSlots: readonly string[],
-): ((Hour & { expectedIndex: number }) | undefined)[] {
-  const pointsByTimestamp = new Map<string, Hour[]>();
-  for (const point of points) {
-    const matches = pointsByTimestamp.get(point.timestamp) ?? [];
-    matches.push(point);
-    pointsByTimestamp.set(point.timestamp, matches);
-  }
-
-  return expectedSlots.map((timestamp, expectedIndex) => {
-    const point = pointsByTimestamp.get(timestamp)?.shift();
-    return point === undefined ? undefined : { ...point, expectedIndex };
-  });
+): (Hour | undefined)[] {
+  const pointsByTimestamp = new Map(
+    points.map((point) => [point.timestamp, point]),
+  );
+  return expectedSlots.map((timestamp) => pointsByTimestamp.get(timestamp));
 }
 
-// Walk real instants so DST gaps/repeats and fractional UTC offsets retain
-// their existing meaning. Returned observations never define this timeline.
-export function expectedHourlySlots(
-  start: string,
-  end: string,
-  timeZone: string,
-): string[] {
-  const formatter = new Intl.DateTimeFormat("en-CA-u-ca-iso8601-nu-latn", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  const approximateStart = Date.parse(`${start}:00Z`) - 18 * 60 * 60 * 1_000;
-  const approximateEnd = Date.parse(`${end}:00Z`) + 18 * 60 * 60 * 1_000;
+// Expected slots come from the destination-local activity period, independent
+// of provider records. Clock transitions receive ordinary timestamp treatment:
+// a missing local hour is missing evidence and a repeated timestamp has one
+// wall-clock identity.
+export function expectedHourlySlots(start: string, end: string): string[] {
+  let timestamp = `${start.slice(0, 13)}:00`;
+  if (timestamp < start) timestamp = shiftHours(timestamp, 1);
   const slots: string[] = [];
-
-  for (
-    let instant = approximateStart;
-    instant <= approximateEnd;
-    instant += 15 * 60 * 1_000
-  ) {
-    const parts = Object.fromEntries(
-      formatter.formatToParts(instant).map(({ type, value }) => [type, value]),
-    );
-    if (parts.minute !== "00") continue;
-    const local = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-    if (local >= start && local <= end) slots.push(local);
+  while (timestamp <= end) {
+    slots.push(timestamp);
+    timestamp = shiftHours(timestamp, 1);
   }
-
   return slots;
 }
 
-export function contiguousBlocks<
-  Hour extends { timestamp: string; expectedIndex?: number },
->(hours: Hour[], size: number): Hour[][] {
+export function contiguousBlocks<Hour extends { timestamp: string }>(
+  hours: Hour[],
+  size: number,
+): Hour[][] {
   const blocks: Hour[][] = [];
   for (let index = 0; index <= hours.length - size; index += 1) {
     const block = hours.slice(index, index + size);
@@ -108,12 +79,9 @@ export function isNextHour(left: string, right: string): boolean {
 }
 
 export function areConsecutive(
-  left: { timestamp: string; expectedIndex?: number },
-  right: { timestamp: string; expectedIndex?: number },
+  left: { timestamp: string },
+  right: { timestamp: string },
 ): boolean {
-  if (left.expectedIndex !== undefined && right.expectedIndex !== undefined) {
-    return right.expectedIndex === left.expectedIndex + 1;
-  }
   return isNextHour(left.timestamp, right.timestamp);
 }
 

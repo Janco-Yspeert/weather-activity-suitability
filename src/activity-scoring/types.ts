@@ -90,5 +90,4 @@ export interface ScoredHour {
   timestamp: string;
   rating: OrdinaryRating;
   utility: number;
-  expectedIndex?: number;
 }

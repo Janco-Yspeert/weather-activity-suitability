@@ -72,3 +72,23 @@ Note: For most skills, ChatGPT at Terra-Medium was used.
 49. Spike 002 advisory amendment implemented: GraphQL now exposes sparse daily and forecast-scoped advisory codes; sufficiently evidenced flat surf is affirmatively unsuitable; structural surf and all-date no-snow conclusions are consolidated at forecast scope while partial-date no-snow remains daily. Existing scoring semantics remain unchanged outside the explicit flat-surf addition. Deterministic tests, typecheck and diff checks pass; the amendment retains one stale sentence contradicting its newer forecast-level no-snow requirement.
 50. During final implementation verification, the advisory amendment removed its stale no-snow contradiction and the accepted calibration added an hourly flat-water cap. Surf hours below 0.30 m are now capped at POOR, preventing sparse flat evidence from forming a positive fallback; sufficiently evidenced all-flat periods remain UNSUITABLE with NO_SURF.
 51. Spike 002 evaluator reverification passed after the scoring refactor and advisory amendment: 104 deterministic tests, the stable evaluator-contract probes, typecheck, diff checks, inspection, and 4 live Open-Meteo tests preserve all nine prepared criteria. The post-prepare advisory contract also passes supplemental visible checks but was not retroactively added to the unchanged prepared plan.
+52. Spike 003 brief-readiness review completed: its accepted fresh-partial/no-data reuse refinement conflicts with the still-unmodified root brief and decision record; those inherited contracts must be aligned and readiness rerun before downstream work.
+53. Spike 003 brief-readiness rerun completed: the root brief and decision record now adopt fresh, request-window-compatible reuse independent of actual coverage; only completed-cleanup wording in the spike remains editorial.
+54. Spike 003 Design Map completed: source selection remains service-owned over independently durable weather/marine snapshots; retry stays at provider transport, SQLite storage preserves application-owned payloads, and a configurable composition boundary supports restart and HTTP verification.
+55. Spike 003 evaluator preparation completed: the independent plan covers durable application-owned storage, aliases and restart reuse, freshness/horizon selection, source-independent refresh and fallback, bounded transport retries, coalescing, persistence failures, truthful GraphQL metadata, runnable HTTP delivery, and inherited behavior; prewritten checks were deferred to avoid inventing candidate structure.
+56. While preparing for spike 003 Human readability review identified that DST handling had expanded beyond the
+    original product concern. The intended requirement was to avoid treating
+    calendar days as structurally invalid merely because they contain 23 or 25
+    hourly observations, while preserving provider-independent activity-sufficiency
+    denominators. Implementation/evaluation had gone further by preserving distinct identities
+    for repeated wall-clock hours across DST fallback transitions. This required
+    timezone-aware expected-slot reconstruction and `expectedIndex` propagation
+    through surf/ski contiguity logic. I judged that additional fidelity disproportionate to the product value and
+    harmful to readability. The Spike 002 contract was narrowed deliberately:
+    destination-local dates/activity periods and independent expected-slot
+    denominators remain, but v1 no longer models repeated/skipped DST wall-clock
+    instants specially. Ordinary missing-evidence behaviour applies where a clock
+    transition directly intersects an activity period.
+    Existing evaluator remains applicable except that repeated wall-clock-hour identity is no longer a product requirement; the 23/25-hour non-rejection requirement remains.
+57. Spike 002 DST simplification implemented: expected surf/ski denominators now use ordinary destination-local hourly slots independent of provider timestamps; duplicate wall-clock timestamps have one alignment identity, missing timestamps break ordinary contiguity, and `expectedIndex` plus timezone-aware real-instant scanning were removed. All other scoring calibration is unchanged. Focused scoring tests (75), the full deterministic suite (104), typecheck, and diff checks pass.
+58. Spike 002 as-built completed against the accepted candidate and later human-approved refinements: the implemented scoring, evidence, advisory, inherited lifecycle, and deliberately simplified DST behavior align with the governing contract; no material drift was found.

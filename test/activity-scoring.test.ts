@@ -181,17 +181,21 @@ describe("activity scoring", () => {
     ).toEqual(["FAIR"]);
   });
 
-  it("treats repeated DST hours as separate expected contiguous surf slots", () => {
-    const dstDate = "2026-11-01";
-    const repeatedHour = [`${dstDate}T01:00`, `${dstDate}T01:00`];
+  it("does not treat duplicate wall-clock timestamps as a contiguous surf opportunity", () => {
+    const repeatedDate = "2026-11-01";
+    const repeatedHour = [`${repeatedDate}T01:00`, `${repeatedDate}T01:00`];
     const weather = forecastAtTimestamps(weatherForecast(), repeatedHour, [
-      { date: dstDate, sunrise: `${dstDate}T01:30`, sunset: `${dstDate}T02:00` },
+      {
+        date: repeatedDate,
+        sunrise: `${repeatedDate}T01:30`,
+        sunset: `${repeatedDate}T02:00`,
+      },
     ]);
     const marine = forecastAtTimestamps(marineForecast(), repeatedHour);
 
     expect(
-      scoreActivities(weather, marine, [dstDate], "America/New_York").surfing,
-    ).toEqual(["GOOD"]);
+      scoreActivities(weather, marine, [repeatedDate]).surfing,
+    ).toEqual(["UNKNOWN"]);
   });
 
   it("distinguishes full-horizon structural marine nulls from a provider failure", () => {

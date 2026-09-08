@@ -95,7 +95,6 @@ export class ForecastService {
       sources.weather,
       sources.marine,
       dates,
-      location.timezone,
     );
 
     return {

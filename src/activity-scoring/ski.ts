@@ -21,7 +21,6 @@ import {
 
 interface SkiHour {
   timestamp: string;
-  expectedIndex: number;
   airTemperature: number;
   snowfall: number;
   snowDepth: number;
@@ -44,9 +43,8 @@ type SkiEvidence =
 export function scoreSki(
   hours: WeatherHour[],
   date: string,
-  timeZone: string,
 ): Assessment {
-  const evidence = assessSkiEvidence(hours, date, timeZone);
+  const evidence = assessSkiEvidence(hours, date);
   if (evidence.kind === "PREREQUISITE_ABSENT") {
     return assessment("UNSUITABLE", "PREREQUISITE_ABSENT");
   }
@@ -60,13 +58,8 @@ export function scoreSki(
 function assessSkiEvidence(
   hours: WeatherHour[],
   date: string,
-  timeZone: string,
 ): SkiEvidence {
-  const expectedSlots = expectedHourlySlots(
-    `${date}T08:00`,
-    `${date}T17:00`,
-    timeZone,
-  );
+  const expectedSlots = expectedHourlySlots(`${date}T08:00`, `${date}T17:00`);
   if (expectedSlots.length === 0) return { kind: "INSUFFICIENT_DATA" };
   const aligned = alignToExpectedSlots(hours, expectedSlots);
 
@@ -83,7 +76,6 @@ function assessSkiEvidence(
     if (hour === undefined) return [];
     const {
       timestamp,
-      expectedIndex,
       airTemperature,
       snowfall,
       snowDepth,
@@ -106,7 +98,6 @@ function assessSkiEvidence(
     return [
       {
         timestamp,
-        expectedIndex,
         airTemperature,
         snowfall,
         snowDepth,
@@ -219,7 +210,6 @@ function scoreSkiHour(point: SkiHour, snowUtility: number): ScoredHour {
       timestamp: point.timestamp,
       rating: "UNSUITABLE",
       utility: 0,
-      expectedIndex: point.expectedIndex,
     };
   }
 
@@ -232,7 +222,6 @@ function scoreSkiHour(point: SkiHour, snowUtility: number): ScoredHour {
     timestamp: point.timestamp,
     rating,
     utility,
-    expectedIndex: point.expectedIndex,
   };
 }
 

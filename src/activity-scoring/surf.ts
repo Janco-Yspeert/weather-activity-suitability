@@ -26,7 +26,6 @@ import {
 
 interface SurfHour {
   timestamp: string;
-  expectedIndex: number;
   waveHeight: number;
   swellPeriod: number;
   wavePeriod: number;
@@ -50,14 +49,12 @@ export function scoreSurf(
   marine: MarineHour[],
   solar: SolarDay | undefined,
   marineEvidence: MarineEvidence,
-  timeZone: string,
 ): Assessment {
   const evidence = assessSurfEvidence(
     weather,
     marine,
     solar,
     marineEvidence,
-    timeZone,
   );
   if (evidence.kind === "STRUCTURAL_NON_APPLICABLE") {
     return assessment("UNSUITABLE", "STRUCTURAL_NON_APPLICABLE");
@@ -112,7 +109,6 @@ function assessSurfEvidence(
   marine: MarineHour[],
   solar: SolarDay | undefined,
   marineEvidence: MarineEvidence,
-  timeZone: string,
 ): SurfEvidence {
   if (marineEvidence === "STRUCTURAL_NON_APPLICABLE") {
     return { kind: "STRUCTURAL_NON_APPLICABLE" };
@@ -127,15 +123,14 @@ function assessSurfEvidence(
   const expectedSlots = expectedHourlySlots(
     shiftMinutes(solar.sunrise, -90),
     shiftMinutes(solar.sunset, 60),
-    timeZone,
   );
   if (expectedSlots.length === 0) return { kind: "INSUFFICIENT_DATA" };
   const alignedWeather = alignToExpectedSlots(weather, expectedSlots);
   const alignedMarine = alignToExpectedSlots(marine, expectedSlots);
   const hours: SurfHour[] = expectedSlots.flatMap(
-    (timestamp, expectedIndex) => {
-      const weatherHour = alignedWeather[expectedIndex];
-      const marineHour = alignedMarine[expectedIndex];
+    (timestamp, index) => {
+      const weatherHour = alignedWeather[index];
+      const marineHour = alignedMarine[index];
       if (weatherHour === undefined || marineHour === undefined) return [];
       const { windSpeed, weatherCode } = weatherHour;
       const { waveHeight, swellPeriod, wavePeriod } = marineHour;
@@ -150,7 +145,6 @@ function assessSurfEvidence(
       return [
         {
           timestamp,
-          expectedIndex,
           windSpeed,
           weatherCode,
           waveHeight,
@@ -194,7 +188,6 @@ function scoreSurfHour(hour: SurfHour): ScoredHour {
       timestamp: hour.timestamp,
       rating: "UNSUITABLE",
       utility: 0,
-      expectedIndex: hour.expectedIndex,
     };
   }
 
@@ -206,7 +199,6 @@ function scoreSurfHour(hour: SurfHour): ScoredHour {
     timestamp: hour.timestamp,
     rating,
     utility,
-    expectedIndex: hour.expectedIndex,
   };
 }
 

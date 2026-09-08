@@ -40,7 +40,6 @@ export function scoreActivities(
   weather: SourceForecast<WeatherObservation> | null,
   marine: SourceForecast<MarineObservation> | null,
   dates: readonly string[],
-  timeZone = "UTC",
 ): ActivityRatings {
   const weatherEvidence = weatherHours(weather);
   const marineHoursForForecast = marineHours(marine);
@@ -86,9 +85,8 @@ export function scoreActivities(
       ),
       solarByDate.get(date),
       marineEvidence,
-      timeZone,
     );
-    const ski = scoreSki(dayWeather, date, timeZone);
+    const ski = scoreSki(dayWeather, date);
     const indoor = scoreIndoor(outdoor, ski, surf);
 
     const advisoryCodes: DailyAdvisoryCode[] = [];

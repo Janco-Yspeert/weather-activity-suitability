@@ -114,19 +114,49 @@ Forecast data must survive process restart and be reused where possible rather t
 A persisted snapshot is associated with a canonical resolved location and records enough metadata to determine:
 
 - when it was fetched;
+- the complete destination-local target window it was requested to support;
 - which destination-local dates it actually covers;
 - whether it is fresh enough for normal reuse;
 - whether it is still eligible as a stale fallback.
 
+The requested target window and actual returned coverage are separate concepts.
+The former determines whether a snapshot is compatible with the current request;
+the latter determines what evidence the service can actually use.
+
 The final persisted forecast payload is intentionally not fixed in this brief. The activity methodology may require hourly observations, daily aggregates, correlated observations, or some combination of these. The persisted representation should follow those requirements rather than constrain them in advance.
 
-### Freshness
+### Freshness and request-window compatibility
 
 The normal forecast freshness window is three hours.
 
-A snapshot is reusable only if it is both fresh and provides enough actual coverage for the seven requested dates.
+Normal reuse requires a successfully fetched and validated snapshot that is
+both fresh and compatible with the current seven-day target window.
 
-Coverage is determined from the data returned by the provider, not from an assumption about the request size used to fetch it.
+```text
+normal reuse =
+    successful snapshot
+    && fresh
+    && request-window compatible
+```
+
+A snapshot is request-window compatible when its recorded
+requestedThroughDate is on or after the final complete destination-local
+target date required by the current request.
+
+For the seven-day product window, requestedThroughDate is the seventh target
+date produced by the application's destination-local date policy. It represents
+the last complete day the provider request was intended to support. It is not
+inferred from the configured forecast_hours, forecast_days, the final
+timestamp actually returned, or source coveredDates.
+
+Actual returned coverage remains separate from refresh eligibility. A
+successfully validated partial or no-data response is reused for the normal
+freshness window when it is request-window compatible. Its actual evidence
+continues to determine source metadata and activity-specific sufficiency.
+
+This prevents repeated requests to a degraded provider while also ensuring that
+a fresh snapshot is refreshed when the destination-local date advances beyond
+the horizon it was fetched to support.
 
 ### Refresh behavior
 
@@ -135,9 +165,11 @@ Refresh is lazy.
 When a request arrives, the service should:
 
 1. resolve the location;
-2. load any existing snapshot;
-3. reuse it if it is fresh and sufficiently covered;
-4. otherwise refresh from Open-Meteo and persist the result.
+2. load the latest persisted source snapshots;
+3. reuse a source snapshot if it is fresh and request-window compatible;
+4. otherwise refresh that source from Open-Meteo and persist a successful response;
+5. use actual returned coverage and activity-specific evidence rules to
+   determine which assessments the selected source can support.
 
 A scheduled background downloader is not required.
 

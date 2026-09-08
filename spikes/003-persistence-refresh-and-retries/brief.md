@@ -1,6 +1,6 @@
 # Spike 003 — Persistence, Refresh Lifecycle, Retries and Runnable Service
 
-Status: DRAFT FOR HUMAN REVIEW
+Status: HUMAN ACCEPTED, FROZEN
 
 Depends on:
 
@@ -49,7 +49,7 @@ passing persisted source data into the existing scorer.
 
 ## 2. Governing lifecycle refinement
 
-The root brief currently contains older wording that says a snapshot is
+The root brief contained older wording that says a snapshot is
 normally reusable only when it is both fresh and sufficiently covered.
 
 The human decision for this spike refines that rule.

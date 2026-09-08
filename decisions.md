@@ -96,15 +96,43 @@ A rolling request of `forecast_hours=195` is currently a useful Open-Meteo adapt
 
 The important decision is that **195 is not an application invariant**.
 
-Correctness is determined from the timestamps actually returned and the coverage recorded for the snapshot. A snapshot is reusable only when it is both fresh enough and covers the dates required by the current request.
+If the freshness policy changes later, or the provider changes how a rolling request behaves, the application does not become wrong because some unrelated piece of code assumes that 195 has special meaning. At worst, a snapshot stops being reusable sooner and is refreshed.
+
+Correctness is still determined from the timestamps and observations actually
+returned by the provider, but actual coverage does not determine whether a
+successful fresh snapshot should be refreshed again.
+
+Normal reuse is based on three separate concerns:
+
+- the source response was successfully fetched and validated;
+- the snapshot is still within the configured freshness window; and
+- the snapshot was fetched for a requested horizon that still includes the
+  current target window.
 
 In other words:
 
-```text
-usable = fresh && sufficient actual date coverage
-```
+normal reuse =
+successful snapshot
+&& fresh
+&& request-window compatible
 
-If the freshness policy changes later, or the provider changes how a rolling request behaves, the application does not become wrong because some unrelated piece of code assumes that 195 has special meaning. At worst, a snapshot stops being reusable sooner and is refreshed.
+request-window compatible means that the snapshot's recorded
+requestedThroughDate is on or after the last complete destination-local target
+date required by the current request.
+
+Actual returned coverage remains a separate concept. It determines source
+metadata and whether activity-specific evidence is sufficient, but it does not
+cause an otherwise fresh, window-compatible snapshot to be immediately
+refetched.
+
+A successfully validated partial or no-data response is therefore cached for
+the normal freshness window. This avoids repeatedly calling a degraded provider
+without inventing evidence that was not returned.
+
+The requested horizon is an application-level concept: for the seven-day
+product window, `requestedThroughDate` is the final complete target date. It is
+not inferred from the last timestamp returned or from the configured
+`forecast_hours` / `forecast_days` values.
 
 The provider request strategy belongs inside the Open-Meteo adapter.
 
