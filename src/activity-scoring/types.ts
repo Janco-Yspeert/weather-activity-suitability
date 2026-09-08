@@ -17,16 +17,47 @@ export type Reason =
   | "INSUFFICIENT_DATA"
   | "GLOBAL_EXTREME";
 
+export type AssessmentDetail =
+  | "FLAT_SURF"
+  | "SURF_OUTSIDE_RECREATIONAL_RANGE";
+
 export interface Assessment {
   rating: ActivityRating;
   reason: Reason;
+  detail?: AssessmentDetail;
 }
+
+export const DAILY_ADVISORY_CODES = [
+  "EXTREME_WIND",
+  "BLIZZARD_LIKE_CONDITIONS",
+  "HEAVY_FREEZING_RAIN",
+  "EXTREME_HEAT",
+  "EXTREME_COLD",
+  "HEAVY_HAIL_THUNDERSTORM",
+  "SKIING_NO_SNOW",
+  "LARGE_SURF",
+  "NO_SURF",
+] as const;
+
+export type DailyAdvisoryCode = (typeof DAILY_ADVISORY_CODES)[number];
+export interface DailyAdvisory {
+  date: string;
+  codes: DailyAdvisoryCode[];
+}
+
+export const FORECAST_ADVISORY_CODES = [
+  "SURFING_NOT_APPLICABLE",
+  "SKIING_NO_SNOW_FORECAST",
+] as const;
+export type ForecastAdvisoryCode = (typeof FORECAST_ADVISORY_CODES)[number];
 
 export interface ActivityRatings {
   skiing: ActivityRating[];
   surfing: ActivityRating[];
   outdoorSightseeing: ActivityRating[];
   indoorSightseeing: ActivityRating[];
+  dailyAdvisories: DailyAdvisory[];
+  forecastAdvisories: ForecastAdvisoryCode[];
 }
 
 // Canonical partial evidence. Non-finite provider values are absent here.

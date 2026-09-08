@@ -442,6 +442,28 @@ Then apply activity-specific vetoes/caps.
 
 These are generic-user product limits, not safety guarantees for a known surfer.
 
+### Flat-water cap
+
+Total wave height `<0.30 m` represents conditions below the model's minimum
+meaningful surf range.
+
+Any individual surf hour with wave height `<0.30 m` is capped at `POOR`,
+regardless of swell period, combined wave period or wind conditions.
+
+Such an hour is therefore not a surfable (`FAIR`-or-better) hour and cannot
+contribute to a valid surfing opportunity.
+
+This hourly cap does not by itself establish a daily `UNSUITABLE` result.
+
+When period sufficiency is below `70%`, sparse flat-water observations remain
+insufficient to establish the absence of surf, so a day with no independently
+observed valid opportunity remains `UNKNOWN`.
+
+When ordinary surf period sufficiency is met and every scorable access-period
+wave-height observation is `<0.30 m`, the sufficiently-evidenced `NO_SURF`
+absence rule applies: surfing is `UNSUITABLE` and the `NO_SURF` advisory is
+emitted.
+
 ## 5.8 Surfable hour and opportunity
 
 A `surfable` hour is a scorable hour rated at least `FAIR`.
@@ -1009,6 +1031,8 @@ requirement unless a test specifically targets a weighting boundary.
 
 20. At `>=70%` coverage, the ordinary daily surf aggregation in section 5.11
     applies unchanged.
+
+21. total wave height `<0.30 m` → cap the surf hour at `POOR`;
 
 ## 8.3 Skiing
 

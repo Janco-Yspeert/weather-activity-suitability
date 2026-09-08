@@ -65,6 +65,13 @@ export function scoreSurf(
   if (evidence.kind !== "SCORABLE")
     return assessment("UNKNOWN", "INSUFFICIENT_DATA");
 
+  if (
+    evidence.periodSufficient &&
+    evidence.hours.every(({ waveHeight }) => waveHeight < 0.3)
+  ) {
+    return assessment("UNSUITABLE", "WEATHER", "FLAT_SURF");
+  }
+
   const scored = evidence.hours.map(scoreSurfHour);
   const opportunities = surfOpportunities(scored).sort(compareOpportunities);
   if (!evidence.periodSufficient) {
@@ -78,14 +85,26 @@ export function scoreSurf(
     );
   }
   if (opportunities.length === 0) {
+    const rating = scored.every(({ rating }) => rating === "UNSUITABLE")
+      ? "UNSUITABLE"
+      : "POOR";
     return assessment(
-      scored.every(({ rating }) => rating === "UNSUITABLE")
-        ? "UNSUITABLE"
-        : "POOR",
+      rating,
       "WEATHER",
+      rating === "UNSUITABLE" &&
+        evidence.hours.some(isOutsideRecreationalSurfRange)
+        ? "SURF_OUTSIDE_RECREATIONAL_RANGE"
+        : undefined,
     );
   }
   return assessment(surfDaily(opportunities), "WEATHER");
+}
+
+function isOutsideRecreationalSurfRange(hour: SurfHour): boolean {
+  return (
+    hour.waveHeight >= 4 ||
+    (hour.waveHeight >= 3.5 && hour.swellPeriod >= 12)
+  );
 }
 
 function assessSurfEvidence(
@@ -180,6 +199,7 @@ function scoreSurfHour(hour: SurfHour): ScoredHour {
   }
 
   let rating: OrdinaryRating = utilityRating(utility);
+  if (waveHeight < 0.3) rating = capRating(rating, "POOR");
   if (waveHeight >= 3 && swellPeriod >= 12) rating = capRating(rating, "POOR");
   utility = cappedUtility(utility, rating);
   return {

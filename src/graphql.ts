@@ -19,6 +19,28 @@ const typeDefinitions = /* GraphQL */ `
     UNAVAILABLE
   }
 
+  enum DailyAdvisoryCode {
+    EXTREME_WIND
+    BLIZZARD_LIKE_CONDITIONS
+    HEAVY_FREEZING_RAIN
+    EXTREME_HEAT
+    EXTREME_COLD
+    HEAVY_HAIL_THUNDERSTORM
+    SKIING_NO_SNOW
+    LARGE_SURF
+    NO_SURF
+  }
+
+  enum ForecastAdvisoryCode {
+    SURFING_NOT_APPLICABLE
+    SKIING_NO_SNOW_FORECAST
+  }
+
+  type DailyAdvisory {
+    date: String!
+    codes: [DailyAdvisoryCode!]!
+  }
+
   type SourceAvailability {
     state: SourceState!
     coveredDates: [String!]!
@@ -48,6 +70,8 @@ const typeDefinitions = /* GraphQL */ `
     surfing: [ActivityRating!]!
     outdoorSightseeing: [ActivityRating!]!
     indoorSightseeing: [ActivityRating!]!
+    dailyAdvisories: [DailyAdvisory!]!
+    forecastAdvisories: [ForecastAdvisoryCode!]!
   }
 
   type Query {

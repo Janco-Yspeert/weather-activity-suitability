@@ -5,169 +5,162 @@ Verdict: PASS
 ## Required checks
 
 - `npm run typecheck` — PASS.
-- `npm test` — PASS: 44 deterministic tests across 6 files.
-- Supplemental amended-contract probe — PASS: 24 independent assertions
-  exercised through the `ForecastService` provider/clock seam; the temporary
-  probe file was removed after execution.
+- `npm test` — PASS: 104 deterministic tests across 7 files.
+- Existing stable evaluator-contract suite — PASS. The service-seam probes for
+  EVAL-02, EVAL-05 and EVAL-07 and the 205-case calibration-boundary/evidence
+  snapshot ran as part of `npm test`.
 - `git diff --check` — PASS.
-- `npm run test:integration` — not rerun. It is optional evidence, and the
-  repair did not alter provider requests, parsing, or validation.
+- `npm run test:integration` — PASS: 4 live Open-Meteo integration tests.
+  This remains supplemental evidence and did not decide the scoring verdict.
 
 ## Planned-criterion results
 
 ### EVAL-01 — Application-owned observation boundary and retained alignment
 
-PASS. `ForecastService` requests the complete application-owned v1 observation
-set. `OpenMeteoClient` owns provider-field translation, validation, local
-timestamps, and date-keyed sunrise/sunset. Scoring receives canonical values
-and aligns surf weather and marine records to the same expected local slot;
-values from different timestamps cannot be combined into a synthetic hour.
+PASS. The provider request and runtime boundary retain the complete v1 weather,
+marine and date-keyed solar observations under application-owned names. The
+scoring modules consume canonical weather and marine hours rather than
+Open-Meteo field names. Surf evidence is aligned independently to generated
+expected local slots; the service-seam regression proves weather and marine
+values at different timestamps cannot form a synthetic session.
 
-The visible boundary tests cover all selected fields, misaligned arrays,
-semantically invalid timestamps, and 23/25-hour local dates. Inspection confirms
-expected slots are generated from real instants in the destination timezone and
-retain repeated local-hour occurrences instead of assuming a 24-hour day.
+The inherited provider tests cover field translation, nullable data, array
+alignment and semantically valid local timestamps. Destination-local date tests
+cover 23- and 25-hour dates, while the scoring regression covers a repeated
+fall-back hour as two distinct expected slots.
 
 ### EVAL-02 — Global override has narrow local-time scope and precedence
 
-PASS. The current deterministic suite confirms in-period extreme heat makes all
-four activities `UNSUITABLE`. Inspection confirms the accepted gust, freezing
-rain, thunderstorm, blizzard-like, extreme-heat, and extreme-cold triggers use
-the 06:00–22:00 local period and preserve global precedence. The prior bounded
-blizzard and night-only-heat probes remain applicable; the repair did not touch
-this logic. Missing hazard values do not themselves trigger the override.
+PASS. Deterministic service-seam cases establish the exact two-hour heat and
+cold boundaries, non-consecutive hours, single hours, immediately sub-threshold
+values and night-only extremes. Visible tests cover all six accepted triggers
+and multiple simultaneous triggers. Inspection confirms only 06:00–22:00 local
+hours participate, consecutive evidence is required where specified, absent
+fields do not trigger a veto, and any detected extreme sets all four activities
+to `UNSUITABLE` before ordinary scoring.
 
 ### EVAL-03 — Evidence semantics and inherited source metadata remain honest
 
-PASS. Source state remains derived by the inherited weak per-date coverage
-definition and is independent of activity sufficiency. The service tests
-confirm `AVAILABLE`, `PARTIAL`, `NO_DATA`, and `UNAVAILABLE` degradation without
-turning missing provider evidence into an affirmative unsuitable conclusion.
+PASS. Forecast-service tests preserve `AVAILABLE`, `PARTIAL`, `NO_DATA` and
+`UNAVAILABLE` independently for weather and marine, distinct from activity
+sufficiency. Provider failure and missing ordinary evidence remain `UNKNOWN`;
+successfully validated structural marine absence retains its separate
+affirmative rule. The GraphQL check returns seven chronological dates and four
+date-aligned rating arrays with the service's real results.
 
-The supplemental probe confirms missing surf/ski timestamps remain absent
-expected slots: they do not shrink denominators, bridge gaps, create additional
-opportunities, or contribute favourable utility. Sparse ordinary adverse
-evidence returns `UNKNOWN` below period sufficiency.
+Generated expected surf and ski slots remain the denominators. Stable probes
+confirm that removing observations does not shrink coverage, bridge a gap,
+create another opportunity or contribute favourable utility. Sparse adverse
+evidence remains `UNKNOWN` unless an independently sufficient affirmative rule
+applies.
 
 ### EVAL-04 — Outdoor windows, score shape, caps and daily aggregation
 
-PASS. Current visible tests and inspection confirm three-hour contiguity,
-required-field completeness, weighted bands, heavy-rain and poor-visibility
-caps, thunderstorm vetoes, gust caps, usable-hour aggregation, and the accepted
-dry/light-rain/light-snow behavior. Outdoor scoring is unchanged by the surf/ski
-sufficiency repair and does not zero-fill missing evidence.
+PASS. The deterministic suite and retained 205-case snapshot exercise the
+accepted temperature, precipitation, wind, gust, visibility and weather-code
+boundaries, including null and non-finite evidence. Inspection confirms
+complete aligned three-hour windows, the accepted weighted/rounded utility,
+heavy-rain and low-visibility caps, thunderstorm and sub-200 m vetoes, and the
+best-window-plus-usable-hours aggregation matrix. A two-hour fragment remains
+`UNKNOWN`; missing required observations are not zero-filled.
 
 ### EVAL-05 — Surf period and opportunity sufficiency use the expected solar timeline
 
-PASS. Surf coverage is now measured against every expected local hourly slot
-from sunrise minus 90 minutes through sunset plus 60 minutes, independently of
-returned weather or marine records. Same-slot alignment and expected-slot
-indices preserve real contiguity.
+PASS. Surf access slots are still generated from sunrise minus 90 minutes
+through sunset plus 60 minutes in the destination timezone, independently of
+returned observations. Same-slot alignment and expected indices preserve gaps
+and repeated local hours.
 
-Independent probes established the amended below-70% oracle:
+The stable evaluator-contract cases reconfirm the prepared partial-evidence
+oracle: one excellent hour is `UNKNOWN`; two excellent hours are `GOOD`; two
+good hours are `FAIR`; three good hours are `GOOD`; a fair opportunity remains
+`FAIR`; four excellent hours are capped at `GOOD`; a missing hour breaks the
+opportunity; sparse adverse evidence is `UNKNOWN`; and two separate partial
+opportunities use only the best single opportunity. Sufficient-coverage
+aggregation, period relationships, exact wave/wind thresholds, large-wave
+vetoes and missing-solar behavior are covered by the boundary snapshot,
+developer scenarios and inspection.
 
-- two excellent hours → `GOOD`;
-- two good hours → `FAIR`;
-- three good hours → `GOOD`;
-- a valid fair opportunity → `FAIR`;
-- one excellent hour → `UNKNOWN`;
-- four excellent hours → `GOOD`, not `EXCELLENT`;
-- a missing hour splits the opportunity;
-- sparse adverse evidence → `UNKNOWN`; and
-- two separate two-hour good opportunities still use only the best single
-  opportunity and produce `FAIR`.
-
-At sufficient coverage, inspection and visible tests confirm the original
-single- and multi-opportunity aggregation remains unchanged. Missing solar data
-remains `UNKNOWN`, while the structural rule retains its separate precedence.
+The accepted post-prepare flat-water refinement intentionally changes only the
+`<0.30 m` cases: individual hours are capped at `POOR`; sparse flat evidence
+cannot form a positive fallback; and sufficiently evidenced all-flat access
+periods are `UNSUITABLE`. The five affected characterization rows changed for
+that explicit reason; other captured ratings remain unchanged.
 
 ### EVAL-06 — Surf non-applicability requires complete structural evidence
 
-PASS. Visible deterministic checks distinguish a successfully validated
-full-horizon all-null set of all three required marine series (`UNSUITABLE`)
-from provider failure (`UNKNOWN`). Inspection confirms a null target date or a
-partially null horizon cannot establish structural non-applicability, and the
-full retained horizon is examined.
+PASS. A successfully validated full-horizon all-null result for all three
+required marine series yields structural non-applicability. A provider failure
+yields `UNKNOWN`, and retained non-null evidence beyond the target dates
+prevents the structural inference. A null target date cannot masquerade as a
+null fetched horizon.
 
 ### EVAL-07 — Ski period and opportunity sufficiency preserve the snow prerequisite
 
-PASS. Ordinary scorable and snow-depth coverage use the ten expected local
-slots from 08:00 through 17:00. The supplemental probe confirmed that 60%
-coverage follows the partial fallback while exactly 70% follows ordinary
-aggregation, so returned records cannot redefine the denominator.
+PASS. Both ordinary and snow-depth coverage still use the ten generated slots
+from 08:00 through 17:00. Stable probes reconfirm the exact 70% transition,
+four-hour block requirement, missing-hour split, sparse-adverse safeguard and
+the full block-local snow table: `<0.01 m` and `0.01–<0.05 m` are `UNKNOWN`
+under partial evidence, `0.05–<0.15 m` is `FAIR`, and `0.15 m` or more can
+support the partial `GOOD` cap. Whole-period temperature modifiers and usable-
+fraction bonuses are not borrowed by incomplete periods.
 
-Independent partial-evidence probes established:
-
-- four excellent hours → `GOOD`, while three → `UNKNOWN`;
-- four good or fair hours → `FAIR`;
-- missing hours split candidate blocks;
-- sparse unsuitable rain evidence → `UNKNOWN`;
-- block-median snow `<0.01 m` and `0.01–<0.05 m` → `UNKNOWN` when the
-  independent prerequisite lacks sufficient evidence;
-- block-median snow `0.05–<0.15 m` → `FAIR`;
-- block-median snow `0.15–<0.30 m` and `>=0.30 m` → `GOOD`; and
-- the wider-day warm/marginal-snow modifier is not applied to an incomplete
-  period.
-
-Visible and independent checks also confirm that snow-depth evidence covering
-at least 70% of expected slots with median depth below 0.01 m remains the
-separate `UNSUITABLE` prerequisite even when other required ski evidence is
-missing.
+Separately sufficient snow-depth evidence with median below `0.01 m` remains
+the affirmative `UNSUITABLE` prerequisite even when ordinary ski fields are
+incomplete. The boundary snapshot and inspection retain the rain, wind,
+visibility, temperature, snowfall, cloud renormalisation and marginal-snow
+caps, with no elevation or resort-availability gate.
 
 ### EVAL-08 — Indoor assessment honours reasoned opportunity cost
 
-PASS. Visible tests and inspection confirm the global override, ordinary-
-weather insufficiency, default `GOOD`, weather-only `EXCELLENT` boost, and the
-exclusion of unknown, structural, and prerequisite absence from false weather
+PASS. Indoor still returns `UNKNOWN` when ordinary outdoor evidence is
+insufficient, `UNSUITABLE` under the global veto, `GOOD` by default, and
+`EXCELLENT` only when sufficiently evidenced weather removes the outdoor
+alternatives. Provider uncertainty cannot boost indoor, while ski prerequisite
+absence and structural surf non-applicability are excluded from false weather-
 opportunity-cost claims. Indoor emits neither `FAIR` nor `POOR`.
 
 ### EVAL-09 — Inherited lifecycle and scope are preserved
 
-PASS. All inherited deterministic checks pass. Canonical-location refresh
-coalescing, independent source outcomes, location/date alignment, GraphQL
-ratings, and source metadata remain intact. Inspection found no persistence,
-ORM, request-time snapshot reuse, second astronomy provider, or generic
-multi-provider framework added by Spike 002.
+PASS. Inherited tests reconfirm canonical location identity, seven destination-
+local dates, independent weather/marine outcomes, same-location refresh
+coalescing, distinct-location isolation and retry after degraded refresh. The
+current dependencies and implementation contain no persistence, ORM, request-
+time snapshot reuse/fallback, second astronomy provider or generic multi-
+provider framework.
 
 ## Classification
 
-No contract failure remains. The prior evaluator result was correctly rendered
-`CONTRACT_CHANGED` by the human-accepted sufficiency amendment; the candidate
-now satisfies the re-prepared oracle.
-
-An initial run of the temporary supplemental probe failed because the probe
-contained a stray unary `+` in its fixture construction. This was an
-`EVALUATOR_DEFECT`, not candidate evidence. The fixture was corrected without
-changing its oracle or the candidate, and the complete probe then passed.
-
-## Engineering observations
-
-- `src/activity-scoring.ts` remains a large, densely coupled concentration of
-  calibration tables, aggregation rules, temporal helpers, and reason mapping.
-  This is non-blocking, but the already-recorded readability refactor is now a
-  sensible follow-up provided behavior remains protected by tests.
-- Developer tests cover the core denominator regressions and principal partial
-  fallbacks, but several accepted branches required supplemental evaluator
-  coverage: three-hour good/fair surf mapping, best-single surf behavior, the
-  complete block-local ski snow table, and the exact 70% ski transition. Those
-  are worth promoting into durable developer tests before structural cleanup.
+No `IMPLEMENTATION_FAILURE`, `EVALUATOR_DEFECT`, `SPECIFICATION_AMBIGUITY` or
+`INFRASTRUCTURE_FAILURE` affected the prepared verification. The substantial
+module refactor preserved the stable contract, and the accepted advisory/flat-
+surf additions did not invalidate its nine criteria. The live integration
+suite also completed without the previously observed network instability.
 
 ## Evaluator integrity and limitations
 
-The re-prepared plan was not changed during verification. The supplemental
-probe was derived only from its existing EVAL-03, EVAL-05, and EVAL-07 criteria
-and accepted calibration scenarios; it imposed no private API, representation,
-or dependency requirement. Its temporary file was removed after execution.
+The prepared plan and its acceptance semantics were not changed during this
+verification. Evidence came from the public scorer and `ForecastService`
+boundaries, provider/GraphQL checks, stable regression probes and targeted
+inspection; no private helper API or candidate-specific architecture was made
+mandatory.
 
-Deterministic controlled evidence decides this verdict. The live Open-Meteo
-suite was not required because no provider-boundary behavior changed, and a
-network result could not validate these scoring semantics anyway.
+The public advisory addendum was accepted after evaluator preparation. Its
+GraphQL shape, sparse/date-keyed output, global trigger codes, structural surf
+code, daily versus forecast no-snow behavior, large-surf qualification and
+flat-surf uncertainty rule all pass visible deterministic tests and inspection.
+That is useful supplemental evidence, but it is not represented as a newly
+precommitted criterion in this unchanged plan. A future preparation pass would
+be required only if the advisory addendum itself needs a formally independent
+acceptance contract.
+
+The live suite is useful boundary evidence but cannot prove scoring semantics
+and did not determine the verdict.
 
 ## Public feedback
 
-The candidate satisfies the amended Spike 002 contract. Expected surf and ski
-periods no longer shrink with returned observations; complete minimum
-opportunities support only the specified conservative partial-evidence ratings;
-sparse evidence does not manufacture negative conclusions; and the affirmative
-global, structural-marine, and no-snow rules retain precedence. No implementation
-retry is required.
+The candidate satisfies the prepared Spike 002 evaluator contract after the
+scoring refactor and advisory amendment. Expected-slot denominators, temporal
+continuity, sparse-evidence safeguards, source uncertainty, global/structural/
+no-snow precedence, indoor reason semantics, GraphQL alignment and inherited
+lifecycle behavior remain intact. No implementation retry is required.

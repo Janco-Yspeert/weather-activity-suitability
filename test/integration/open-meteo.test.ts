@@ -1,7 +1,25 @@
+import { setDefaultAutoSelectFamilyAttemptTimeout } from "node:net";
 import { describe, expect, it } from "vitest";
 
 import { getTargetDates } from "../../src/forecast-policy.js";
-import { OpenMeteoClient } from "../../src/open-meteo.js";
+import {
+  OpenMeteoClient,
+  type ResolvedLocation,
+} from "../../src/open-meteo.js";
+
+//Was having local internet issues and using mobile hotspot. Decide whether to keep this later.
+setDefaultAutoSelectFamilyAttemptTimeout(1000);
+
+const capeTown: ResolvedLocation = {
+  id: "3369157",
+  name: "Cape Town",
+  latitude: -33.92584,
+  longitude: 18.42322,
+  timezone: "Africa/Johannesburg",
+  countryCode: "ZA",
+  country: "South Africa",
+  admin1: "Western Cape",
+};
 
 describe("Open-Meteo live integration", () => {
   const client = new OpenMeteoClient();
@@ -43,8 +61,7 @@ describe("Open-Meteo live integration", () => {
   });
 
   it("returns usable weather data covering the target forecast window", async () => {
-    const location = await client.resolveLocation("Cape Town");
-    const forecast = await client.fetchWeather(location, [
+    const forecast = await client.fetchWeather(capeTown, [
       "airTemperature",
       "apparentTemperature",
       "precipitation",
@@ -67,7 +84,7 @@ describe("Open-Meteo live integration", () => {
       forecast.observations.airTemperature.some((value) => value !== null),
     ).toBe(true);
 
-    const targetDates = getTargetDates(new Date(), location.timezone);
+    const targetDates = getTargetDates(new Date(), capeTown.timezone);
 
     const returnedDates = new Set(
       forecast.localTimestamps.map((timestamp) => timestamp.slice(0, 10)),
@@ -80,8 +97,7 @@ describe("Open-Meteo live integration", () => {
   });
 
   it("returns usable marine data for Cape Town", async () => {
-    const location = await client.resolveLocation("Cape Town");
-    const forecast = await client.fetchMarine(location, [
+    const forecast = await client.fetchMarine(capeTown, [
       "waveHeight",
       "swellPeriod",
       "wavePeriod",
@@ -102,7 +118,7 @@ describe("Open-Meteo live integration", () => {
       forecast.localTimestamps.length,
     );
 
-    const targetDates = getTargetDates(new Date(), location.timezone);
+    const targetDates = getTargetDates(new Date(), capeTown.timezone);
 
     const datesWithMarineData = new Set(
       forecast.localTimestamps

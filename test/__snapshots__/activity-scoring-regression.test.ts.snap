@@ -121,11 +121,11 @@ cloudCover=76: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
 cloudCover=null: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
 cloudCover=NaN: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
 cloudCover=Infinity: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
-wave=0.2/4: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
-wave=0.2/5: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
-wave=0.2/7: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
-wave=0.2/9: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
-wave=0.2/12: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.2/4: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=0.2/5: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=0.2/7: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=0.2/9: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=0.2/12: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
 wave=0.3/4: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
 wave=0.3/5: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
 wave=0.3/7: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD

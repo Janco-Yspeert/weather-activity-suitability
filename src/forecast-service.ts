@@ -2,6 +2,8 @@ import { getTargetDates, type LocalDate } from "./forecast-policy.js";
 import {
   scoreActivities,
   type ActivityRating,
+  type DailyAdvisory,
+  type ForecastAdvisoryCode,
 } from "./activity-scoring.js";
 import { ProviderError } from "./open-meteo.js";
 import type {
@@ -61,6 +63,8 @@ export interface ForecastAssessment {
   surfing: ActivityRating[];
   outdoorSightseeing: ActivityRating[];
   indoorSightseeing: ActivityRating[];
+  dailyAdvisories: DailyAdvisory[];
+  forecastAdvisories: ForecastAdvisoryCode[];
 }
 
 interface FetchedSources {

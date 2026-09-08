@@ -18,7 +18,42 @@ describe("activity scoring", () => {
       surfing: ["UNSUITABLE"],
       outdoorSightseeing: ["UNSUITABLE"],
       indoorSightseeing: ["UNSUITABLE"],
+      dailyAdvisories: [
+        { date, codes: ["EXTREME_HEAT"] },
+      ],
+      forecastAdvisories: [],
     });
+  });
+
+  it("preserves every independently established global-extreme trigger", () => {
+    const weather = weatherForecast({
+      apparentTemperature: { 10: 45, 11: 45 },
+      windGust: { 10: 93 },
+    });
+
+    expect(scoreActivities(weather, marineForecast(), [date]).dailyAdvisories).toEqual([
+      { date, codes: ["EXTREME_WIND", "EXTREME_HEAT"] },
+    ]);
+  });
+
+  it.each([
+    [{ windGust: allHours(93) }, "EXTREME_WIND"],
+    [
+      {
+        snowfall: allHours(1),
+        visibility: allHours(400),
+        windGust: allHours(56),
+      },
+      "BLIZZARD_LIKE_CONDITIONS",
+    ],
+    [{ weatherCode: allHours(67) }, "HEAVY_FREEZING_RAIN"],
+    [{ apparentTemperature: allHours(45) }, "EXTREME_HEAT"],
+    [{ apparentTemperature: allHours(-30) }, "EXTREME_COLD"],
+    [{ weatherCode: allHours(99) }, "HEAVY_HAIL_THUNDERSTORM"],
+  ] as const)("maps a global extreme to advisory %s", (overrides, expected) => {
+    const result = scoreActivities(weatherForecast(overrides), marineForecast(), [date]);
+
+    expect(result.dailyAdvisories).toEqual([{ date, codes: [expected] }]);
   });
 
   it("uses a sustained comfortable outdoor period and keeps indoor at GOOD", () => {
@@ -170,6 +205,103 @@ describe("activity scoring", () => {
       "UNSUITABLE",
     ]);
     expect(scoreActivities(weatherForecast(), null, [date]).surfing).toEqual(["UNKNOWN"]);
+  });
+
+  it("emits one forecast advisory for structural surfing non-applicability", () => {
+    const structurallyNull = marineForecast({
+      waveHeight: allHours(null),
+      swellPeriod: allHours(null),
+      wavePeriod: allHours(null),
+    });
+
+    const result = scoreActivities(weatherForecast(), structurallyNull, [date]);
+
+    expect(result.forecastAdvisories).toEqual([
+      "SURFING_NOT_APPLICABLE",
+      "SKIING_NO_SNOW_FORECAST",
+    ]);
+    expect(result.dailyAdvisories).toEqual([]);
+  });
+
+  it("exposes prerequisite absence and the large-surf veto as daily advisories", () => {
+    const result = scoreActivities(
+      weatherForecast(),
+      marineForecast({ waveHeight: allHours(4) }),
+      [date],
+    );
+
+    expect(result.skiing).toEqual(["UNSUITABLE"]);
+    expect(result.surfing).toEqual(["UNSUITABLE"]);
+    expect(result.dailyAdvisories).toEqual([
+      { date, codes: ["LARGE_SURF"] },
+    ]);
+    expect(result.forecastAdvisories).toEqual(["SKIING_NO_SNOW_FORECAST"]);
+  });
+
+  it("does not expose LARGE_SURF when an isolated vetoed hour does not make the day unsuitable", () => {
+    const result = scoreActivities(
+      weatherForecast({ snowDepth: allHours(0.4), airTemperature: allHours(0) }),
+      marineForecast({ waveHeight: { 9: 4 } }),
+      [date],
+    );
+
+    expect(result.surfing).not.toEqual(["UNSUITABLE"]);
+    expect(result.dailyAdvisories).toEqual([]);
+  });
+
+  it("calls sufficiently evidenced flat surf unsuitable without inferring absence from sparse data", () => {
+    const flat = marineForecast({ waveHeight: allHours(0.2) });
+    const sufficient = scoreActivities(weatherForecast(), flat, [date]);
+    const partial = scoreActivities(
+      weatherForecast(),
+      retainHours(flat, [9, 10]),
+      [date],
+    );
+
+    expect(sufficient.surfing).toEqual(["UNSUITABLE"]);
+    expect(sufficient.dailyAdvisories).toEqual([
+      { date, codes: ["NO_SURF"] },
+    ]);
+    expect(sufficient.forecastAdvisories).toEqual(["SKIING_NO_SNOW_FORECAST"]);
+    expect(partial.surfing).toEqual(["UNKNOWN"]);
+    expect(partial.dailyAdvisories).toEqual([]);
+    expect(partial.forecastAdvisories).toEqual(["SKIING_NO_SNOW_FORECAST"]);
+  });
+
+  it("keeps no-snow date-scoped when it applies to only some target dates", () => {
+    const secondDate = "2026-09-09";
+    const result = scoreActivities(
+      weatherForecast(),
+      marineForecast(),
+      [date, secondDate],
+    );
+
+    expect(result.dailyAdvisories).toContainEqual({
+      date,
+      codes: ["SKIING_NO_SNOW"],
+    });
+    expect(result.forecastAdvisories).not.toContain("SKIING_NO_SNOW_FORECAST");
+  });
+
+  it("consolidates no-snow only when every distinct target date establishes it", () => {
+    const secondDate = "2026-09-09";
+    const dates = [date, secondDate];
+    const result = scoreActivities(
+      forecastForDates(weatherForecast(), dates),
+      forecastForDates(marineForecast(), dates),
+      dates,
+    );
+
+    expect(result.skiing).toEqual(["UNSUITABLE", "UNSUITABLE"]);
+    expect(result.dailyAdvisories).toEqual([]);
+    expect(result.forecastAdvisories).toEqual(["SKIING_NO_SNOW_FORECAST"]);
+  });
+
+  it("returns empty advisory lists when no affirmative advisory condition exists", () => {
+    const result = scoreActivities(null, null, [date]);
+
+    expect(result.dailyAdvisories).toEqual([]);
+    expect(result.forecastAdvisories).toEqual([]);
   });
 
   it("scores sustained strong skiing and enforces snow prerequisites", () => {
@@ -415,6 +547,42 @@ function forecastAtTimestamps<Observation extends string>(
       ]),
     ) as Record<Observation, (number | null)[]>,
     ...(solarDays === undefined ? {} : { solarDays }),
+  };
+}
+
+function forecastForDates<Observation extends string>(
+  forecast: SourceForecast<Observation>,
+  dates: readonly string[],
+): SourceForecast<Observation> {
+  return {
+    localTimestamps: dates.flatMap((targetDate) =>
+      forecast.localTimestamps.map((timestamp) =>
+        timestamp.replace(date, targetDate),
+      ),
+    ),
+    observations: Object.fromEntries(
+      Object.entries(forecast.observations).map(([key, values]) => [
+        key,
+        dates.flatMap(() => values as readonly (number | null)[]),
+      ]),
+    ) as Record<Observation, (number | null)[]>,
+    ...(forecast.solarDays === undefined
+      ? {}
+      : {
+          solarDays: dates.flatMap((targetDate) =>
+            forecast.solarDays!.map((day) => ({
+              date: targetDate,
+              sunrise:
+                day.sunrise === null
+                  ? null
+                  : day.sunrise.replace(date, targetDate),
+              sunset:
+                day.sunset === null
+                  ? null
+                  : day.sunset.replace(date, targetDate),
+            })),
+          ),
+        }),
   };
 }
 

@@ -75,8 +75,8 @@ const timezoneSchema = z
 const geocodingResultSchema = z.object({
   id: z.number().int(),
   name: z.string().min(1),
-  latitude: z.number().finite().min(-90).max(90),
-  longitude: z.number().finite().min(-180).max(180),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
   timezone: timezoneSchema,
   feature_code: z.string().min(1),
   country_code: z.string().optional(),
@@ -187,9 +187,7 @@ export class OpenMeteoClient {
       timezone: location.timezone,
       hourly: requestedFields.join(","),
       forecast_hours: "195",
-      ...(includeSolar
-        ? { daily: "sunrise,sunset", forecast_days: "8" }
-        : {}),
+      ...(includeSolar ? { daily: "sunrise,sunset", forecast_days: "8" } : {}),
     }).toString();
     const body = await this.requestJson(url);
     return parseSourceResponse(
@@ -342,7 +340,11 @@ function parseSourceResponse<Observation extends string>(
       daily.time.forEach((date, index) => {
         for (const field of ["sunrise", "sunset"] as const) {
           const timestamp = daily[field][index];
-          if (timestamp !== null && timestamp !== undefined && !timestamp.startsWith(`${date}T`)) {
+          if (
+            timestamp !== null &&
+            timestamp !== undefined &&
+            !timestamp.startsWith(`${date}T`)
+          ) {
             context.addIssue({
               code: "custom",
               path: [field, index],

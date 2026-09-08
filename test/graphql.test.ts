@@ -60,6 +60,8 @@ describe("forecast GraphQL contract", () => {
             surfing
             outdoorSightseeing
             indoorSightseeing
+            dailyAdvisories { date codes }
+            forecastAdvisories
           }
         }
       `,
@@ -107,6 +109,8 @@ describe("forecast GraphQL contract", () => {
         surfing: Array(7).fill("UNKNOWN"),
         outdoorSightseeing: Array(7).fill("UNKNOWN"),
         indoorSightseeing: Array(7).fill("UNKNOWN"),
+        dailyAdvisories: [],
+        forecastAdvisories: [],
       },
     });
   });

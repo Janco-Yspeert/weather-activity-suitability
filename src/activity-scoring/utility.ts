@@ -1,5 +1,6 @@
 import type {
   ActivityRating,
+  AssessmentDetail,
   Assessment,
   OrdinaryRating,
   QualityRating,
@@ -22,8 +23,12 @@ const capUtility: Record<QualityRating, number> = {
   EXCELLENT: 100,
 };
 
-export function assessment(rating: ActivityRating, reason: Reason): Assessment {
-  return { rating, reason };
+export function assessment(
+  rating: ActivityRating,
+  reason: Reason,
+  detail?: AssessmentDetail,
+): Assessment {
+  return detail === undefined ? { rating, reason } : { rating, reason, detail };
 }
 
 export function utilityRating(utility: number): QualityRating {
