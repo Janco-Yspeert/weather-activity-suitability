@@ -1,0 +1,209 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`preserves baseline ratings across calibration boundaries and evidence gaps 1`] = `
+"airTemperature=-21: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=-20: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=-15: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=-10: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=-5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=3: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=7: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=7.1: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=10: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=10.1: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=15: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=16: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=null: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=NaN: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+airTemperature=Infinity: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=-30: ski=UNSUITABLE surf=UNSUITABLE outdoor=UNSUITABLE indoor=UNSUITABLE
+apparentTemperature=-29: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+apparentTemperature=-1: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+apparentTemperature=0: ski=EXCELLENT surf=EXCELLENT outdoor=GOOD indoor=GOOD
+apparentTemperature=5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=12: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=18: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=27: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=32: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=36: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+apparentTemperature=40: ski=EXCELLENT surf=EXCELLENT outdoor=GOOD indoor=GOOD
+apparentTemperature=44: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+apparentTemperature=45: ski=UNSUITABLE surf=UNSUITABLE outdoor=UNSUITABLE indoor=UNSUITABLE
+apparentTemperature=null: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+apparentTemperature=NaN: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+apparentTemperature=Infinity: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+precipitation=0.1: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+precipitation=0.2: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+precipitation=0.4: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+precipitation=0.5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+precipitation=1: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+precipitation=1.5: ski=EXCELLENT surf=EXCELLENT outdoor=GOOD indoor=GOOD
+precipitation=2: ski=EXCELLENT surf=EXCELLENT outdoor=GOOD indoor=GOOD
+precipitation=2.1: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+precipitation=4: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+precipitation=null: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+precipitation=NaN: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+precipitation=Infinity: ski=EXCELLENT surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+rain=0: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=0.1: ski=FAIR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=0.5: ski=FAIR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=0.6: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=2: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=2.1: ski=UNSUITABLE surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=null: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=NaN: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+rain=Infinity: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=0: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=0.5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=1.5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=3: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=5: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=5.1: ski=GOOD surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=null: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=NaN: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowfall=Infinity: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0: ski=UNSUITABLE surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0.01: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0.05: ski=FAIR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0.1: ski=FAIR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0.15: ski=GOOD surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=0.3: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=null: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=NaN: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+snowDepth=Infinity: ski=UNKNOWN surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=10: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=12: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=20: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=30: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=35: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windSpeed=40: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+windSpeed=50: ski=UNSUITABLE surf=UNSUITABLE outdoor=POOR indoor=EXCELLENT
+windSpeed=null: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+windSpeed=NaN: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+windSpeed=Infinity: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+windGust=56: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windGust=69: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windGust=70: ski=EXCELLENT surf=EXCELLENT outdoor=FAIR indoor=GOOD
+windGust=79: ski=EXCELLENT surf=EXCELLENT outdoor=FAIR indoor=GOOD
+windGust=80: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+windGust=92: ski=EXCELLENT surf=EXCELLENT outdoor=POOR indoor=GOOD
+windGust=93: ski=UNSUITABLE surf=UNSUITABLE outdoor=UNSUITABLE indoor=UNSUITABLE
+windGust=null: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windGust=NaN: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+windGust=Infinity: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=199: ski=UNSUITABLE surf=EXCELLENT outdoor=UNSUITABLE indoor=GOOD
+visibility=200: ski=UNSUITABLE surf=EXCELLENT outdoor=POOR indoor=GOOD
+visibility=400: ski=UNSUITABLE surf=EXCELLENT outdoor=POOR indoor=GOOD
+visibility=499: ski=UNSUITABLE surf=EXCELLENT outdoor=POOR indoor=GOOD
+visibility=500: ski=GOOD surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=999: ski=GOOD surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=1000: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=2000: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=5000: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=10000: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+visibility=null: ski=UNKNOWN surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+visibility=NaN: ski=UNKNOWN surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+visibility=Infinity: ski=UNKNOWN surf=EXCELLENT outdoor=UNKNOWN indoor=UNKNOWN
+weatherCode=66: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+weatherCode=67: ski=UNSUITABLE surf=UNSUITABLE outdoor=UNSUITABLE indoor=UNSUITABLE
+weatherCode=95: ski=EXCELLENT surf=UNSUITABLE outdoor=UNSUITABLE indoor=GOOD
+weatherCode=96: ski=EXCELLENT surf=UNSUITABLE outdoor=UNSUITABLE indoor=GOOD
+weatherCode=99: ski=UNSUITABLE surf=UNSUITABLE outdoor=UNSUITABLE indoor=UNSUITABLE
+weatherCode=null: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+weatherCode=NaN: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+weatherCode=Infinity: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+cloudCover=24: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=25: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=50: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=51: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=75: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=76: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=null: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=NaN: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+cloudCover=Infinity: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=0.2/4: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
+wave=0.2/5: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
+wave=0.2/7: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.2/9: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.2/12: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.3/4: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
+wave=0.3/5: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.3/7: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.3/9: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.3/12: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.6/4: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.6/5: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=0.6/7: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.6/9: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.6/12: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.9/4: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.9/5: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=0.9/7: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=0.9/9: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=0.9/12: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=1.8/4: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=1.8/5: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=1.8/7: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=1.8/9: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=1.8/12: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=2.5/4: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=2.5/5: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=2.5/7: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=2.5/9: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=2.5/12: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+wave=3/4: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=3/5: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=3/7: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=3/9: ski=EXCELLENT surf=GOOD outdoor=EXCELLENT indoor=GOOD
+wave=3/12: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
+wave=3.5/4: ski=EXCELLENT surf=POOR outdoor=EXCELLENT indoor=GOOD
+wave=3.5/5: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=3.5/7: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=3.5/9: ski=EXCELLENT surf=FAIR outdoor=EXCELLENT indoor=GOOD
+wave=3.5/12: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=4/4: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=4/5: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=4/7: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=4/9: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+wave=4/12: ski=EXCELLENT surf=UNSUITABLE outdoor=EXCELLENT indoor=GOOD
+hours=8 snow=0: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+hours=8 snow=0.01: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+hours=8 snow=0.05: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+hours=8 snow=0.15: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+hours=8 snow=0.3: ski=UNKNOWN surf=UNKNOWN outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9 snow=0: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9 snow=0.01: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9 snow=0.05: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9 snow=0.15: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9 snow=0.3: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,10 snow=0: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10 snow=0.01: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10 snow=0.05: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10 snow=0.15: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10 snow=0.3: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10,11 snow=0: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10,11 snow=0.01: ski=UNKNOWN surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10,11 snow=0.05: ski=FAIR surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10,11 snow=0.15: ski=GOOD surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,10,11 snow=0.3: ski=GOOD surf=GOOD outdoor=GOOD indoor=GOOD
+hours=8,9,11,12 snow=0: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,11,12 snow=0.01: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,11,12 snow=0.05: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,11,12 snow=0.15: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,11,12 snow=0.3: ski=UNKNOWN surf=GOOD outdoor=UNKNOWN indoor=UNKNOWN
+hours=8,9,10,11,12,13 snow=0: ski=UNKNOWN surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13 snow=0.01: ski=UNKNOWN surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13 snow=0.05: ski=FAIR surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13 snow=0.15: ski=GOOD surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13 snow=0.3: ski=GOOD surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13,14 snow=0: ski=UNSUITABLE surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13,14 snow=0.01: ski=POOR surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13,14 snow=0.05: ski=FAIR surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13,14 snow=0.15: ski=GOOD surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=8,9,10,11,12,13,14 snow=0.3: ski=GOOD surf=GOOD outdoor=EXCELLENT indoor=GOOD
+hours=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 snow=0: ski=UNSUITABLE surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+hours=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 snow=0.01: ski=POOR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+hours=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 snow=0.05: ski=FAIR surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+hours=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 snow=0.15: ski=GOOD surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD
+hours=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 snow=0.3: ski=EXCELLENT surf=EXCELLENT outdoor=EXCELLENT indoor=GOOD"
+`;
