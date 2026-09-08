@@ -17,8 +17,10 @@ Status: IMPLEMENTED
   and snow cap, and otherwise returns `UNKNOWN`. Sufficiently evidenced no-snow
   prerequisite failure still takes precedence.
 - Added visible regressions for truncated excellent evidence, positive partial
-  fallbacks, gaps, sparse adverse evidence, surf fallback caps, block-local ski
-  snow caps, and the independent no-snow veto.
+  fallbacks, gaps, sparse adverse evidence, surf fallback caps and best-only
+  aggregation, the full block-local ski snow table, the exact 70% ski
+  transition, partial warm/marginal snow handling, the independent no-snow
+  veto, and repeated-hour DST slot continuity.
 
 ## Consequential implementation decisions
 
@@ -42,8 +44,8 @@ Status: IMPLEMENTED
 
 ## Verification
 
-- Focused activity-scoring suite: 15 tests passed.
-- `npm test`: 44 deterministic tests passed.
+- Focused activity-scoring suite: 26 tests passed.
+- `npm test`: 55 deterministic tests passed.
 - `npm run typecheck`: passed.
 - `git diff --check`: passed.
 - Live Open-Meteo integration tests were not rerun because this repair does not

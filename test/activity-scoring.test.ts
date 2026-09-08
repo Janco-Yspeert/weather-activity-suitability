@@ -110,6 +110,55 @@ describe("activity scoring", () => {
     ]);
   });
 
+  it.each([
+    {
+      description: "three-hour GOOD opportunity",
+      hours: [9, 10, 11],
+      marine: marineForecast({ waveHeight: allHours(0.7) }),
+      weather: weatherForecast(),
+      expected: "GOOD",
+    },
+    {
+      description: "two-hour FAIR opportunity",
+      hours: [9, 10],
+      marine: marineForecast({
+        waveHeight: allHours(0.7),
+        swellPeriod: allHours(6),
+        wavePeriod: allHours(6),
+      }),
+      weather: weatherForecast({ windSpeed: allHours(25) }),
+      expected: "FAIR",
+    },
+  ])("maps a partial $description to $expected", ({ hours, marine, weather, expected }) => {
+    expect(
+      scoreActivities(weather, retainHours(marine, hours), [date]).surfing,
+    ).toEqual([expected]);
+  });
+
+  it("uses only the best of two separate partial surf opportunities", () => {
+    const twoGoodOpportunities = retainHours(
+      marineForecast({ waveHeight: allHours(0.7) }),
+      [8, 9, 12, 13],
+    );
+
+    expect(
+      scoreActivities(weatherForecast(), twoGoodOpportunities, [date]).surfing,
+    ).toEqual(["FAIR"]);
+  });
+
+  it("treats repeated DST hours as separate expected contiguous surf slots", () => {
+    const dstDate = "2026-11-01";
+    const repeatedHour = [`${dstDate}T01:00`, `${dstDate}T01:00`];
+    const weather = forecastAtTimestamps(weatherForecast(), repeatedHour, [
+      { date: dstDate, sunrise: `${dstDate}T01:30`, sunset: `${dstDate}T02:00` },
+    ]);
+    const marine = forecastAtTimestamps(marineForecast(), repeatedHour);
+
+    expect(
+      scoreActivities(weather, marine, [dstDate], "America/New_York").surfing,
+    ).toEqual(["GOOD"]);
+  });
+
   it("distinguishes full-horizon structural marine nulls from a provider failure", () => {
     const structurallyNull = marineForecast({
       waveHeight: allHours(null),
@@ -172,6 +221,63 @@ describe("activity scoring", () => {
       scoreActivities(retainHours(rainy, [8, 9, 10, 11]), marineForecast(), [date])
         .skiing,
     ).toEqual(["UNKNOWN"]);
+  });
+
+  it.each([
+    [0, "UNKNOWN"],
+    [0.01, "UNKNOWN"],
+    [0.05, "FAIR"],
+    [0.15, "GOOD"],
+    [0.3, "GOOD"],
+  ])("maps partial ski block snow depth %s m to %s", (snowDepth, expected) => {
+    const strongBlock = weatherForecast({
+      airTemperature: allHours(0),
+      snowDepth: allHours(snowDepth),
+    });
+
+    expect(
+      scoreActivities(
+        retainHours(strongBlock, [8, 9, 10, 11]),
+        marineForecast(),
+        [date],
+      ).skiing,
+    ).toEqual([expected]);
+  });
+
+  it("switches from partial to ordinary ski aggregation at exactly 70% coverage", () => {
+    const good = weatherForecast({
+      airTemperature: allHours(9),
+      snowfall: allHours(2),
+      snowDepth: allHours(0.4),
+      windSpeed: allHours(25),
+    });
+
+    expect(
+      scoreActivities(retainHours(good, [8, 9, 10, 11, 12, 13]), marineForecast(), [date])
+        .skiing,
+    ).toEqual(["FAIR"]);
+    expect(
+      scoreActivities(
+        retainHours(good, [8, 9, 10, 11, 12, 13, 14]),
+        marineForecast(),
+        [date],
+      ).skiing,
+    ).toEqual(["GOOD"]);
+  });
+
+  it("does not apply a whole-period warm marginal-snow modifier to a partial block", () => {
+    const warmMarginalBlock = weatherForecast({
+      airTemperature: allHours(8),
+      snowDepth: allHours(0.1),
+    });
+
+    expect(
+      scoreActivities(
+        retainHours(warmMarginalBlock, [8, 9, 10, 11]),
+        marineForecast(),
+        [date],
+      ).skiing,
+    ).toEqual(["FAIR"]);
   });
 
   it("keeps sufficiently evidenced no-snow failure above the partial fallback", () => {
@@ -292,6 +398,23 @@ function retainHours<Observation extends string>(
       ]),
     ) as Record<Observation, (number | null)[]>,
     ...(forecast.solarDays === undefined ? {} : { solarDays: forecast.solarDays }),
+  };
+}
+
+function forecastAtTimestamps<Observation extends string>(
+  forecast: SourceForecast<Observation>,
+  localTimestamps: readonly string[],
+  solarDays = forecast.solarDays,
+): SourceForecast<Observation> {
+  return {
+    localTimestamps,
+    observations: Object.fromEntries(
+      Object.entries(forecast.observations).map(([key, values]) => [
+        key,
+        (values as readonly (number | null)[]).slice(0, localTimestamps.length),
+      ]),
+    ) as Record<Observation, (number | null)[]>,
+    ...(solarDays === undefined ? {} : { solarDays }),
   };
 }
 
