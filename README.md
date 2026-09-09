@@ -15,6 +15,11 @@ Ratings assess forecast weather and marine conditions at the resolved location.
 They are not safety assessments and do not confirm that the activity, suitable
 terrain, facilities or local access exist.
 
+The original assignment is [`source-brief.md`](./source-brief.md). The
+chronological working trail is [`WORKLOG.md`](./WORKLOG.md), current decisions
+are in [`decisions.md`](./decisions.md), and the staged implementation and
+evaluation artifacts are under [`spikes/`](./spikes/).
+
 ## Running
 
 Requires Node.js 24.
@@ -30,6 +35,14 @@ The GraphQL endpoint is available by default at:
 
 ```text
 http://127.0.0.1:4000/graphql
+```
+
+Exxample usage is:
+
+```bash
+curl http://127.0.0.1:4000/graphql \
+  -H 'content-type: application/json' \
+  --data '{"query":"{ forecast(location: \"Cape Town\") { dates skiing surfing outdoorSightseeing indoorSightseeing } }"}'
 ```
 
 The service stores resolved locations and forecast snapshots in a local SQLite
@@ -137,6 +150,9 @@ the activities, and explicit product judgement to set the heuristics. The
 calibration and supporting research are kept under `spikes/` rather than being
 repeated here.
 
+The exact thresholds, coverage rules and calibration are documented under
+`spikes/002-activity-scoring/`.
+
 This is a **weather-suitability** service, not an activity-availability or safety
 service. Open-Meteo cannot tell me whether a ski resort, surf break or attraction
 actually exists at the resolved location. In particular, a positive skiing or
@@ -159,31 +175,6 @@ to recommend that activity under the model being used.
 Internal numeric values are used in a few places to combine evidence, but these
 are implementation utilities rather than confidence scores and are deliberately
 not exposed through the API.
-
-## Heuristics at a glance
-
-The four activities are scored differently rather than being fed through one
-generic weather formula.
-
-- **Outdoor sightseeing** looks for a worthwhile contiguous daytime window,
-  with apparent temperature, precipitation, wind and visibility contributing
-  to the rating.
-- **Surfing** looks for usable sessions around daylight hours using wave height,
-  swell period, wave period and wind. Very large waves are not treated as
-  automatically better, and persistently flat conditions can make the day
-  unsuitable.
-- **Skiing** treats snow as a prerequisite. Once there is enough snow evidence,
-  it looks for a substantial daytime window with suitable temperature, wind,
-  visibility and precipitation.
-- **Indoor sightseeing** starts from a high baseline. It becomes especially
-  attractive when weather makes the outdoor options poor, rather than simply
-  being the inverse of outdoor sightseeing.
-
-A small set of severe-weather conditions can override the ordinary activity
-scores and mark the day unsuitable across activities.
-
-The exact thresholds, coverage rules and calibration are documented under
-`spikes/002-activity-scoring/`.
 
 ## Development process
 

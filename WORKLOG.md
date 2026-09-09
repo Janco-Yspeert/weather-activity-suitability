@@ -120,3 +120,22 @@ Note: For most skills, ChatGPT at Terra-Medium was used.
     append-only SQLite files collapse to the row the prior latest-selection
     query would have selected before a unique index enforces the new invariant.
     The Design Map remains intentionally unmodified at human direction.
+73. Repaired the repository-review transport and fallback findings: Node's
+    `UND_ERR_SOCKET` is now a retryable provider failure, and the bounded retry
+    attempt includes response-body consumption so body timeouts/socket failures
+    retry while malformed JSON remains non-retryable. Stale fallback rechecks
+    the clock after refresh failure rather than admitting snapshots that crossed
+    the 24-hour limit during the refresh. Four focused regressions failed before
+    the fixes and pass afterward; all 134 offline tests, four live-provider
+    tests, typecheck, build, and diff checks pass. Real localhost probes also
+    confirm recovery after socket closure and a body timeout. Added historical
+    scope notes to the earlier evaluation/as-built reports so their append-only
+    descriptions and verdicts are not mistaken for verification of later changes.
+    No new independent evaluation verdict is claimed.
+74. Added a live integration test for the full Open-Meteo-to-GraphQL assessment
+    path. It uses the default application composition and a temporary SQLite
+    database to resolve Cape Town, fetch/persist weather and marine forecasts,
+    score all four activities, and verify the seven-date response and fresh
+    source metadata without fixing ratings to weather that will inevitably move.
+    Typecheck and all five live integration tests pass.
+75. Final docs clean-up pass, and added ful 0pen-meteo->graphQL response integration test.

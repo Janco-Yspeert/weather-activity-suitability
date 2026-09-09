@@ -2,6 +2,11 @@
 
 Status: ALIGNED
 
+Historical scope: this reconstruction predates the accepted current-snapshot
+amendment and subsequent repository-review repairs recorded in `../../WORKLOG.md`.
+Its append-only descriptions apply to that earlier revision. Current storage
+retains one snapshot per location/source, as specified by the amended brief.
+
 ## Implemented shape
 
 Spike 003 composes the inherited forecast and activity-scoring service around a

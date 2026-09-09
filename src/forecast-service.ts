@@ -191,7 +191,7 @@ export class ForecastService {
     const fallback = this.store.latestSnapshot(location.id, source);
     if (
       fallback !== null &&
-      isStaleFallbackEligible(fallback, location.id, now)
+      isStaleFallbackEligible(fallback, location.id, this.clock())
     ) {
       return selectedSnapshot(fallback, true);
     }

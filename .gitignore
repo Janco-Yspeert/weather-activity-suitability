@@ -1,3 +1,4 @@
 /.codex/
 /node_modules/
-/dist//weather.sqlite
+/dist/
+/weather.sqlite

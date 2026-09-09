@@ -179,7 +179,7 @@ On request:
 ```text
 resolve location
 load snapshot
-use it if fresh and sufficiently covered
+use it if fresh and request-window compatible
 otherwise refresh and persist
 ```
 
@@ -202,7 +202,8 @@ There are persistence semantics I can decide without knowing the activity method
 - a snapshot belongs to a canonical resolved location;
 - it records when it was fetched;
 - it records the coverage it actually contains;
-- freshness and coverage determine normal reuse;
+- freshness and request-window compatibility determine normal reuse;
+- actual coverage determines what evidence the selected snapshot can support;
 - a bounded stale fallback may be used after refresh failure;
 - snapshots survive a service restart.
 
@@ -281,7 +282,6 @@ The main decisions still intentionally deferred to the activity-scoring spike ar
 - the final persisted forecast payload derived from those needs;
 - exact per-activity rules for whether partial/missing observations are sufficient or require `UNKNOWN`;
 - the final GraphQL SDL and detailed metadata fields;
-- snapshot cleanup/retention policy beyond the fact that it is not required for the take-home.
 
 Those should be settled when there is enough product information to make them real decisions rather than guesses.
 

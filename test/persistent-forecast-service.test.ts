@@ -53,6 +53,23 @@ function provider(): ForecastProvider {
 }
 
 describe("persistent forecast lifecycle", () => {
+  it("rechecks fallback age after a slow failed refresh", async () => {
+    let now = new Date("2026-09-06T10:00:00Z");
+    const forecastProvider = provider();
+    const service = new ForecastService(forecastProvider, () => now);
+    await service.assess("Cape Town");
+    now = new Date("2026-09-07T09:59:59Z");
+    const fail = async () => {
+      now = new Date("2026-09-07T10:00:12Z");
+      throw new ProviderRequestError("refresh timed out");
+    };
+    vi.mocked(forecastProvider.fetchWeather).mockImplementation(fail);
+    vi.mocked(forecastProvider.fetchMarine).mockImplementation(fail);
+    const result = await service.assess("Cape Town");
+    expect(result.metadata.weather).toMatchObject({ state: "UNAVAILABLE", fetchedAt: null, stale: false });
+    expect(result.metadata.marine).toMatchObject({ state: "UNAVAILABLE", fetchedAt: null, stale: false });
+  });
+
   it("reuses a late-evening request across local midnight when its intended horizon includes the new final day", async () => {
     let now = new Date("2026-09-06T20:30:00.000Z");
     const store = new MemoryForecastStore();

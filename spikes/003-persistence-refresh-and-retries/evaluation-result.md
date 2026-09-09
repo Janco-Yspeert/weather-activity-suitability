@@ -2,6 +2,12 @@
 
 Verdict: PASS
 
+Historical scope: this verdict predates the accepted current-snapshot amendment
+and the subsequent repository-review repairs recorded in `../../WORKLOG.md`.
+The append-only checks below describe the evaluated revision, not the current
+storage design. This report has not been reissued as a verification of those
+later changes.
+
 This verification reused the unchanged PREPARED plan against the current
 candidate. The previous retry-classification failure is repaired: an uncaused
 programming `TypeError` now propagates without retry or relabelling, while

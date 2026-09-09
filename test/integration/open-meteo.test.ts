@@ -1,5 +1,10 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { graphql } from "graphql";
 import { describe, expect, it } from "vitest";
 
+import { createApplication } from "../../src/application.js";
 import { getTargetDates } from "../../src/forecast-policy.js";
 import {
   OpenMeteoClient,
@@ -126,4 +131,97 @@ describe("Open-Meteo live integration", () => {
       expect(datesWithMarineData.has(date)).toBe(true);
     }
   }, 20_000);
+
+  it("assesses Cape Town through the composed Open-Meteo forecast path", async () => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "weather-live-application-"),
+    );
+    const app = createApplication({
+      databasePath: join(directory, "forecast.sqlite"),
+    });
+    try {
+      const result = await graphql({
+        schema: app.schema,
+        source: `
+          query {
+            forecast(location: "Cape Town") {
+              location { id name timezone }
+              dates
+              skiing
+              surfing
+              outdoorSightseeing
+              indoorSightseeing
+              metadata {
+                weather { state coveredDates fetchedAt stale }
+                marine { state coveredDates fetchedAt stale }
+              }
+            }
+          }
+        `,
+      });
+
+      expect(result.errors).toBeUndefined();
+      const forecast = result.data?.forecast as {
+        location: { id: string; name: string; timezone: string };
+        dates: string[];
+        skiing: string[];
+        surfing: string[];
+        outdoorSightseeing: string[];
+        indoorSightseeing: string[];
+        metadata: {
+          weather: {
+            state: string;
+            coveredDates: string[];
+            fetchedAt: string | null;
+            stale: boolean;
+          };
+          marine: {
+            state: string;
+            coveredDates: string[];
+            fetchedAt: string | null;
+            stale: boolean;
+          };
+        };
+      };
+      expect(forecast.location).toMatchObject({
+        id: "3369157",
+        name: "Cape Town",
+        timezone: "Africa/Johannesburg",
+      });
+      expect(forecast.dates).toEqual(
+        getTargetDates(new Date(), forecast.location.timezone),
+      );
+
+      const ratings = new Set([
+        "UNKNOWN",
+        "UNSUITABLE",
+        "POOR",
+        "FAIR",
+        "GOOD",
+        "EXCELLENT",
+      ]);
+      for (const activity of [
+        forecast.skiing,
+        forecast.surfing,
+        forecast.outdoorSightseeing,
+        forecast.indoorSightseeing,
+      ]) {
+        expect(activity).toHaveLength(7);
+        expect(activity.every((rating) => ratings.has(rating))).toBe(true);
+      }
+
+      for (const source of [
+        forecast.metadata.weather,
+        forecast.metadata.marine,
+      ]) {
+        expect(source.state).toBe("AVAILABLE");
+        expect(source.coveredDates).toEqual(forecast.dates);
+        expect(source.fetchedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(source.stale).toBe(false);
+      }
+    } finally {
+      app.close();
+      await rm(directory, { recursive: true });
+    }
+  }, 30_000);
 });

@@ -12,6 +12,36 @@ function jsonResponse(body: unknown, ok = true): Response {
 }
 
 describe("OpenMeteoClient", () => {
+  it.each(["fetch", "body"])("retries socket failures during %s", async (phase) => {
+    const failure = new TypeError("fetch failed", {
+      cause: Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" }),
+    });
+    const fetch = vi.fn().mockImplementationOnce(async () => {
+      if (phase === "fetch") throw failure;
+      const response = new Response();
+      vi.spyOn(response, "json").mockRejectedValue(failure);
+      return response;
+    }).mockResolvedValue(jsonResponse({ results: [] }));
+    const sleep = vi.fn(async () => undefined);
+    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
+      .rejects.toBeInstanceOf(LocationNotFoundError);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(250);
+  });
+
+  it("bounds retries for timeouts while consuming the response body", async () => {
+    const fetch = vi.fn(async () => {
+      const response = new Response();
+      vi.spyOn(response, "json").mockRejectedValue(new DOMException("body timed out", "TimeoutError"));
+      return response;
+    });
+    const sleep = vi.fn(async () => undefined);
+    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
+      .rejects.toBeInstanceOf(ProviderRequestError);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[250], [750]]);
+  });
+
   it("reports only complete intended request days across the rolling and calendar inputs", () => {
     const client = new OpenMeteoClient();
     const requiredDates = [

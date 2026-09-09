@@ -58,6 +58,7 @@ const RETRYABLE_TRANSPORT_CODES = new Set([
   "ENETUNREACH",
   "ETIMEDOUT",
   "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
 ]);
 
 const POPULATED_PLACE_CODES = new Set([
@@ -271,18 +272,6 @@ export class OpenMeteoClient {
   }
 
   private async requestJson(url: URL): Promise<unknown> {
-    const response = await this.requestWithRetry(url);
-
-    try {
-      return (await response.json()) as unknown;
-    } catch (cause) {
-      throw new ProviderResponseError("Open-Meteo returned invalid JSON", {
-        cause,
-      });
-    }
-  }
-
-  private async requestWithRetry(url: URL): Promise<Response> {
     let lastFailure: ProviderRequestError | undefined;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       let response: Response | undefined;
@@ -297,8 +286,20 @@ export class OpenMeteoClient {
           cause,
         });
       }
-      if (response?.ok) return response;
-      if (response !== undefined) {
+      if (response?.ok) {
+        try {
+          return (await response.json()) as unknown;
+        } catch (cause) {
+          if (!isRetryableTransportFailure(cause)) {
+            throw new ProviderResponseError("Open-Meteo returned invalid JSON", {
+              cause,
+            });
+          }
+          lastFailure = new ProviderRequestError("Open-Meteo request failed", {
+            cause,
+          });
+        }
+      } else if (response !== undefined) {
         const failure = new ProviderRequestError(
           `Open-Meteo request failed with HTTP ${response.status}`,
         );

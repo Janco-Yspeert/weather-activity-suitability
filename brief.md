@@ -143,11 +143,16 @@ A snapshot is request-window compatible when its recorded
 requestedThroughDate is on or after the final complete destination-local
 target date required by the current request.
 
-For the seven-day product window, requestedThroughDate is the seventh target
-date produced by the application's destination-local date policy. It represents
-the last complete day the provider request was intended to support. It is not
-inferred from the configured forecast_hours, forecast_days, the final
-timestamp actually returned, or source coveredDates.
+`requestedThroughDate` represents the last complete destination-local day that
+the provider request was intended to support across its required source inputs.
+
+For the normal seven-day product window this is at least the seventh target
+date. A provider may record a later date when its request shape intentionally
+covers an additional complete day, for example to preserve freshness across a
+local-midnight rollover.
+
+It is not inferred from actual returned coverage or the final timestamp
+returned by the provider.
 
 Actual returned coverage remains separate from refresh eligibility. A
 successfully validated partial or no-data response is reused for the normal
