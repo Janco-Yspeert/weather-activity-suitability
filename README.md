@@ -37,12 +37,12 @@ The GraphQL endpoint is available by default at:
 http://127.0.0.1:4000/graphql
 ```
 
-Exgample usage is:
+Example usage is:
 
 ```bash
 curl http://127.0.0.1:4000/graphql \
   -H 'content-type: application/json' \
-  --data '{"query":"{ forecast(location: \"Cape Town\") { dates skiing surfing outdoorSightseeing indoorSightseeing } }"}'
+  --data '{"query":"{ forecast(location: \"Cape Town\") { dates skiing surfing outdoorSightseeing indoorSightseeing dailyAdvisories { date codes } forecastAdvisories } }"}'
 ```
 
 The service stores resolved locations and forecast snapshots in a local SQLite
