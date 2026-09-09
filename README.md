@@ -37,7 +37,7 @@ The GraphQL endpoint is available by default at:
 http://127.0.0.1:4000/graphql
 ```
 
-Exxample usage is:
+Exgample usage is:
 
 ```bash
 curl http://127.0.0.1:4000/graphql \
