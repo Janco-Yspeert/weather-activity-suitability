@@ -187,11 +187,11 @@ If several requests for the same resolved location arrive while a refresh is alr
 
 For this take-home I am assuming a single service instance. In-process single-flight/coalescing is therefore enough. Distributed locking or cross-instance refresh coordination would solve a deployment problem I am not claiming to solve here.
 
-## 10. Snapshot retention and cleanup are deferred
+## 10. Snapshot retention
 
 The service needs persisted forecasts to survive process restarts and support reuse/fallback. It does not currently need a historical weather archive.
 
-A retention/cleanup policy will eventually be necessary if this runs for a long time, but defining compaction, history retention or scheduled cleanup is not useful to the take-home and is deferred.
+Snapshots are over-written when a fresher one is fetched from the provider. Older snapshots are never merged into new ones to account for possible missing provider data.
 
 ## 11. Persistence lifecycle is decided before persistence payload
 

@@ -248,7 +248,7 @@ export class ForecastService {
       requestedThroughDate,
       forecast,
     };
-    this.store.appendSnapshot(snapshot);
+    this.store.saveSnapshot(snapshot);
     return snapshot;
   }
 }

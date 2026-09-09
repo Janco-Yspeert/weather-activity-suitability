@@ -96,17 +96,23 @@ describe("OpenMeteoClient", () => {
     },
   );
 
-  it("retries retryable HTTP statuses but stops after three total attempts", async () => {
-    const fetch = vi.fn(async () => jsonResponse({}, false));
-    const sleep = vi.fn(async () => undefined);
-    const client = new OpenMeteoClient(fetch, { sleep });
+  it.each([408, 429, 503, 504, 520, 599])(
+    "retries HTTP %i but stops after three total attempts",
+    async (status) => {
+      const fetch = vi.fn(async () => ({
+        ...jsonResponse({}, false),
+        status,
+      }));
+      const sleep = vi.fn(async () => undefined);
+      const client = new OpenMeteoClient(fetch, { sleep });
 
-    await expect(client.resolveLocation("Cape Town")).rejects.toBeInstanceOf(
-      ProviderRequestError,
-    );
-    expect(fetch).toHaveBeenCalledTimes(3);
-    expect(sleep.mock.calls).toEqual([[250], [750]]);
-  });
+      await expect(client.resolveLocation("Cape Town")).rejects.toBeInstanceOf(
+        ProviderRequestError,
+      );
+      expect(fetch).toHaveBeenCalledTimes(3);
+      expect(sleep.mock.calls).toEqual([[250], [750]]);
+    },
+  );
 
   it("recovers when a retryable HTTP failure is followed by success", async () => {
     const fetch = vi
@@ -480,10 +486,9 @@ describe("OpenMeteoClient", () => {
     );
 
     await expect(
-      client.fetchMarine(
-        { ...capeTown(), timezone: "America/New_York" },
-        ["waveHeight"],
-      ),
+      client.fetchMarine({ ...capeTown(), timezone: "America/New_York" }, [
+        "waveHeight",
+      ]),
     ).resolves.toMatchObject({
       localTimestamps: ["2026-03-08T02:30"],
     });

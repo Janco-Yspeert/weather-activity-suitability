@@ -286,16 +286,16 @@ destination-local date policy.
 
 ### 5.4 Snapshot history
 
-Successful source refreshes append a new source snapshot rather than
-destructively overwriting the previous row.
+NOTE: The following was amended after spike 003 was completed.
+Successful source refreshes overwrite the snapshot. We require
+one current snapshot per (location, source) and preserve it when refresh fails
 
 This keeps a previously fetched source available for bounded stale fallback
 after a later refresh failure.
 
-No historical weather analytics are implied by this. Snapshot cleanup and
-retention remain outside the take-home scope.
+No historical weather analytics are implied by this.
 
-For v1, stale fallback selects the most recent eligible persisted snapshot for
+For v1, stale fallback selects the persisted snapshot for
 that source. Do not merge multiple historical snapshots into a synthetic
 forecast and do not search older history for a supposedly "better" forecast
 based on heuristic coverage.
@@ -858,7 +858,7 @@ At minimum verify:
 - fresh weather and stale marine can be combined;
 - stale partial data remains partial rather than being promoted;
 - no eligible source produces the existing unavailable/`UNKNOWN` degradation;
-- snapshots from different fetch generations are not merged.
+- snapshots are not merged.
 
 ### Metadata
 

@@ -19,7 +19,7 @@ export interface ForecastStore {
   findLocationByAlias(normalizedQuery: string): ResolvedLocation | null;
   saveLocationAlias(normalizedQuery: string, location: ResolvedLocation): void;
   latestSnapshot(locationId: string, source: SourceKind): SourceSnapshot | null;
-  appendSnapshot(snapshot: SourceSnapshot): void;
+  saveSnapshot(snapshot: SourceSnapshot): void;
 }
 
 const forecastSchema = z
@@ -113,7 +113,7 @@ function validateForecast(source: SourceKind, value: unknown): SourceForecast {
 export class MemoryForecastStore implements ForecastStore {
   private readonly locations = new Map<string, ResolvedLocation>();
   private readonly aliases = new Map<string, string>();
-  private readonly snapshots: SourceSnapshot[] = [];
+  private readonly snapshots = new Map<string, SourceSnapshot>();
 
   findLocationByAlias(normalizedQuery: string): ResolvedLocation | null {
     const id = this.aliases.get(normalizedQuery);
@@ -129,20 +129,11 @@ export class MemoryForecastStore implements ForecastStore {
     locationId: string,
     source: SourceKind,
   ): SourceSnapshot | null {
-    return (
-      this.snapshots
-        .filter(
-          (snapshot) =>
-            snapshot.locationId === locationId && snapshot.source === source,
-        )
-        .sort(
-          (left, right) => right.fetchedAt.getTime() - left.fetchedAt.getTime(),
-        )[0] ?? null
-    );
+    return this.snapshots.get(snapshotKey(locationId, source)) ?? null;
   }
 
-  appendSnapshot(snapshot: SourceSnapshot): void {
-    this.snapshots.push(snapshot);
+  saveSnapshot(snapshot: SourceSnapshot): void {
+    this.snapshots.set(snapshotKey(snapshot.locationId, snapshot.source), snapshot);
   }
 }
 
@@ -196,10 +187,9 @@ export class SqliteForecastStore implements ForecastStore {
         requested_from_date TEXT NOT NULL,
         requested_through_date TEXT NOT NULL,
         schema_version INTEGER NOT NULL,
-        payload TEXT NOT NULL
+        payload TEXT NOT NULL,
+        UNIQUE (location_id, source)
       ) STRICT;
-      CREATE INDEX IF NOT EXISTS source_snapshot_latest
-        ON source_snapshot(location_id, source, fetched_at DESC, id DESC);
     `);
   }
 
@@ -293,30 +283,45 @@ export class SqliteForecastStore implements ForecastStore {
     };
   }
 
-  appendSnapshot(snapshot: SourceSnapshot): void {
+  saveSnapshot(snapshot: SourceSnapshot): void {
     const forecast = validateForecast(snapshot.source, snapshot.forecast);
-
-    this.database
-      .prepare(
-        `
-      INSERT INTO source_snapshot (
-        location_id, source, fetched_at, requested_from_date,
-        requested_through_date, schema_version, payload
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
-      )
-      .run(
-        snapshot.locationId,
-        snapshot.source,
-        snapshot.fetchedAt.toISOString(),
-        snapshot.requestedFromDate,
-        snapshot.requestedThroughDate,
-        STORAGE_SCHEMA_VERSION,
-        JSON.stringify(forecast),
-      );
+    this.database.exec("BEGIN IMMEDIATE");
+    try {
+      this.database
+        .prepare(
+          "DELETE FROM source_snapshot WHERE location_id = ? AND source = ?",
+        )
+        .run(snapshot.locationId, snapshot.source);
+      this.database
+        .prepare(
+          `
+            INSERT INTO source_snapshot (
+              location_id, source, fetched_at, requested_from_date,
+              requested_through_date, schema_version, payload
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          snapshot.locationId,
+          snapshot.source,
+          snapshot.fetchedAt.toISOString(),
+          snapshot.requestedFromDate,
+          snapshot.requestedThroughDate,
+          STORAGE_SCHEMA_VERSION,
+          JSON.stringify(forecast),
+        );
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   close(): void {
     this.database.close();
   }
+}
+
+function snapshotKey(locationId: string, source: SourceKind): string {
+  return `${locationId}:${source}`;
 }

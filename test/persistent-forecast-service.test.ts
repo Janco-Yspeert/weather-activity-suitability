@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { ForecastService, type ForecastProvider } from "../src/forecast-service.js";
 import { MemoryForecastStore, SqliteForecastStore } from "../src/storage.js";
@@ -19,25 +20,27 @@ const source = (
   localTimestamps: dates.map((date) => `${date}T12:00`), observations: { [observation]: values },
 });
 
+const weatherSource = (airTemperature = 1): SourceForecast => ({
+  localTimestamps: dates.map((date) => `${date}T12:00`),
+  observations: {
+    airTemperature: dates.map(() => airTemperature),
+    apparentTemperature: dates.map(() => 1),
+    precipitation: dates.map(() => 0),
+    rain: dates.map(() => 0),
+    snowfall: dates.map(() => 0),
+    snowDepth: dates.map(() => 0),
+    windSpeed: dates.map(() => 1),
+    windGust: dates.map(() => 1),
+    visibility: dates.map(() => 10_000),
+    weatherCode: dates.map(() => 0),
+    cloudCover: dates.map(() => 0),
+  },
+});
+
 function provider(): ForecastProvider {
   return {
     resolveLocation: vi.fn(async () => location),
-    fetchWeather: vi.fn(async () => ({
-      localTimestamps: dates.map((date) => `${date}T12:00`),
-      observations: {
-        airTemperature: dates.map(() => 1),
-        apparentTemperature: dates.map(() => 1),
-        precipitation: dates.map(() => 0),
-        rain: dates.map(() => 0),
-        snowfall: dates.map(() => 0),
-        snowDepth: dates.map(() => 0),
-        windSpeed: dates.map(() => 1),
-        windGust: dates.map(() => 1),
-        visibility: dates.map(() => 10_000),
-        weatherCode: dates.map(() => 0),
-        cloudCover: dates.map(() => 0),
-      },
-    })),
+    fetchWeather: vi.fn(async () => weatherSource()),
     fetchMarine: vi.fn(async () => ({
       localTimestamps: dates.map((date) => `${date}T12:00`),
       observations: {
@@ -90,6 +93,52 @@ describe("persistent forecast lifecycle", () => {
       expect(restartedProvider.fetchMarine).not.toHaveBeenCalled();
       restartedStore.close();
     } finally {
+      await rm(directory, { recursive: true });
+    }
+  });
+
+  it("overwrites the current weather snapshot with a fresh generation", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "weather-refresh-"));
+    const path = join(directory, "forecast.sqlite");
+    const store = new SqliteForecastStore(path);
+    try {
+      let now = new Date("2026-09-06T10:00:00.000Z");
+      const forecastProvider = provider();
+      const service = new ForecastService(forecastProvider, () => now, store);
+
+      await service.assess("Cape Town");
+
+      vi.mocked(forecastProvider.fetchWeather).mockResolvedValue(
+        weatherSource(27),
+      );
+      now = new Date("2026-09-06T13:00:00.000Z");
+
+      const result = await service.assess("Cape Town");
+
+      expect(forecastProvider.fetchWeather).toHaveBeenCalledTimes(2);
+      expect(result.metadata.weather).toMatchObject({
+        fetchedAt: "2026-09-06T13:00:00.000Z",
+        stale: false,
+      });
+      expect(
+        store.latestSnapshot(location.id, "WEATHER")?.forecast.observations
+          .airTemperature,
+      ).toEqual(dates.map(() => 27));
+
+      const inspection = new DatabaseSync(path, { readOnly: true });
+      try {
+        expect(
+          inspection
+            .prepare(
+              "SELECT COUNT(*) AS count FROM source_snapshot WHERE location_id = ? AND source = 'WEATHER'",
+            )
+            .get(location.id),
+        ).toEqual({ count: 1 });
+      } finally {
+        inspection.close();
+      }
+    } finally {
+      store.close();
       await rm(directory, { recursive: true });
     }
   });
@@ -147,7 +196,7 @@ describe("persistent forecast lifecycle", () => {
 
   it("propagates persistence writes instead of reporting an ephemeral refresh", async () => {
     const store = new MemoryForecastStore();
-    store.appendSnapshot = () => { throw new Error("disk full"); };
+    store.saveSnapshot = () => { throw new Error("disk full"); };
     await expect(new ForecastService(provider(), () => new Date("2026-09-06T10:00:00.000Z"), store).assess("Cape Town"))
       .rejects.toThrow("disk full");
   });

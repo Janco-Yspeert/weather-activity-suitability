@@ -48,7 +48,7 @@ describe("SqliteForecastStore", () => {
     const path = join(directory, "forecast.sqlite");
     const first = new SqliteForecastStore(path);
     first.saveLocationAlias("cape town", location);
-    first.appendSnapshot({
+    first.saveSnapshot({
       locationId: location.id,
       source: "WEATHER",
       fetchedAt: new Date("2026-09-06T10:00:00.000Z"),
@@ -90,7 +90,7 @@ describe("SqliteForecastStore", () => {
     const store = new SqliteForecastStore(join(directory, "forecast.sqlite"));
     store.saveLocationAlias("cape town", location);
 
-    expect(() => store.appendSnapshot({
+    expect(() => store.saveSnapshot({
       locationId: location.id,
       source: "WEATHER",
       fetchedAt: new Date("2026-09-06T10:00:00.000Z"),
@@ -112,7 +112,7 @@ describe("SqliteForecastStore", () => {
 
     let rejectedOnWrite = false;
     try {
-      store.appendSnapshot({
+      store.saveSnapshot({
         locationId: location.id,
         source: "WEATHER",
         fetchedAt: new Date("2026-09-06T10:00:00.000Z"),

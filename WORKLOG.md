@@ -102,3 +102,21 @@ Note: For most skills, ChatGPT at Terra-Medium was used.
 66. Final bounded implementation/readability pass confirmed those repairs and added focused regressions for abort retry, evidenced network retry, and acceptance of nominal DST-gap wall times. Cleanup removed a duplicated retry test, an unused scoring reason, a redundant `await`, and residual formatting from the deleted timezone-aware validation. Scoring calibration, lifecycle, GraphQL, persistence, wall-clock semantics, and already-clear scoring code were deliberately left unchanged. Final verification passed: 124 deterministic tests, typecheck, build, and `git diff --check`.
 67. Spike 003 evaluator reverification passed the unchanged prepared plan: 124 deterministic tests, typecheck, build, 4 live provider checks, independent lifecycle and three-operation retry-classification probes, and real HTTP process restart all pass. The prior bare-TypeError retry defect is repaired; nominal wall-clock validation matches the accepted v1 DST simplification. No additional permanent tests were added because the repaired cases already have focused visible regressions.
 68. Spike 003 as-built completed after the PASS evaluation. The accepted candidate adds durable SQLite aliases and application-owned source generations, independent freshness/refresh/fallback selection, evidence-based bounded transport retries, selected-source GraphQL metadata, and a configurable runnable HTTP service around the inherited scorer. No material Missing, Contradictory, or Extra drift was found; provider-horizon and nominal wall-clock refinements are present as accepted.
+69. Human review revisited the append-only snapshot design introduced in Spike 003 Historical generations are not actually required for the accepted stale fallback lifecycle: a failed refresh can simply leave the current snapshot in place, so an upserted current snapshot would be sufficient. Since AI refactor is cheap, I ammended the spike 003 brief post-hoc, and did a quick clean-up.
+70. Added a real-SQLite lifecycle regression proving that an expired weather
+    source is refreshed, the new generation becomes authoritative, and the old
+    generation remains stored under the accepted append-only design. The
+    refresh-policy audit found strong lifecycle coverage, with explicit HTTP
+    408/429 classification and provider-schema-invalid no-retry call counts
+    remaining as narrow transport-test gaps. All 125 deterministic tests,
+    typecheck, and diff checks pass.
+71. Expanded the retryable-HTTP regression to enumerate HTTP 408, 429, and
+    a few 5xx status. Each must use exactly three attempts with the accepted
+    two retry delays. All 130 deterministic tests, typecheck, and diff checks
+    pass.
+72. Implemented the accepted current-snapshot amendment: successful validated
+    refreshes atomically overwrite one snapshot per canonical location/source;
+    failed refreshes leave that row available for stale fallback. Existing
+    append-only SQLite files collapse to the row the prior latest-selection
+    query would have selected before a unique index enforces the new invariant.
+    The Design Map remains intentionally unmodified at human direction.

@@ -5,9 +5,9 @@ Status: IMPLEMENTED
 ## Files and behavior changed
 
 - `src/storage.ts` adds durable SQLite storage for canonical locations,
-  conservative query aliases, and append-only weather/marine snapshots. Stored
-  payloads are storage-versioned application forecasts and are validated on
-  both write and read.
+  conservative query aliases, and one current weather/marine snapshot per
+  canonical location. Stored payloads are storage-versioned application
+  forecasts and are validated on both write and read.
 - `src/forecast-service.ts` now resolves aliases through storage, selects fresh
   request-window-compatible snapshots, refreshes weather and marine
   independently, coalesces equivalent in-process refreshes, persists successful
@@ -30,8 +30,8 @@ Status: IMPLEMENTED
   runnable `POST /graphql` HTTP service.
 - Visible tests cover SQLite restart reuse, alias behavior, application-payload
   validation, fresh partial/no-data reuse, independent refresh and stale
-  fallback, persistence failure, retries/timeouts, GraphQL metadata, and the
-  runnable HTTP path.
+  fallback, current-snapshot replacement, persistence failure, retries/timeouts,
+  GraphQL metadata, and the runnable HTTP path.
 - `test/integration/open-meteo.test.ts` no longer changes Node's global address
   family behavior and gives live requests enough time to exercise the accepted
   retry budget.
@@ -44,7 +44,11 @@ Status: IMPLEMENTED
 - Forecasts are stored as versioned application-owned JSON. The store rejects
   unknown/provider observation names, missing scoring observations, misaligned
   series, and marine solar data. This keeps provider DTOs outside persistence
-  while preserving the whole scoring input as one snapshot generation.
+  while preserving the whole scoring input as one current snapshot.
+- Successful refreshes atomically replace the current snapshot only after
+  provider validation. A failed refresh performs no write, leaving the current
+  row intact for the accepted stale-fallback path. A successful replacement
+  deletes the prior row and writes the new one in one transaction.
 - Source-level single-flight keys include canonical location, source kind, and
   the adapter-reported requested-through date. This permits independent
   weather/marine outcomes and avoids incorrectly sharing work across different
@@ -66,9 +70,8 @@ Status: IMPLEMENTED
   individual observations.
 - Location-level refresh coalescing was narrowed to source-level coalescing so a
   fresh source does not become coupled to the other source's refresh lifecycle.
-- No distributed locks, scheduler, fuzzy geocoding, snapshot merging, or
-  retention subsystem was added; those remain outside the accepted single-node
-  take-home contract.
+- No distributed locks, scheduler, fuzzy geocoding, or snapshot merging was
+  added; those remain outside the accepted single-node take-home contract.
 
 ## Unexpected implementation discoveries
 
@@ -85,7 +88,7 @@ Status: IMPLEMENTED
 
 ## Tests and checks run
 
-- `npm test`: 10 files, 122 tests passed, including the localhost HTTP smoke
+- `npm test`: 10 files, 131 tests passed, including the localhost HTTP smoke
   test.
 - `npm run typecheck`: passed.
 - `npm run build`: passed and produced the runnable server build.
@@ -102,8 +105,8 @@ Status: IMPLEMENTED
   of the older statement that `requestedThroughDate` is always the seventh
   target date. It changes only provider-request horizon accounting; evidence
   coverage and activity scoring remain unchanged.
-- Partial-source refresh cadence, snapshot cleanup, and location invalidation
-  remain deliberate production deferrals from the governing brief.
+- Partial-source refresh cadence and location invalidation remain deliberate
+  production deferrals from the governing brief.
 - The HTTP test requires permission to bind an ephemeral localhost port; the
   restricted default sandbox rejects that bind with `EPERM`, while the permitted
   test run passes.
