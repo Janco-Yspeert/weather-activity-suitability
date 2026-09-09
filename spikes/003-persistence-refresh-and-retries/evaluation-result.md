@@ -1,219 +1,217 @@
 # Evaluation Result — Spike 003 — Persistence, Refresh Lifecycle, Retries and Runnable Service
 
-Verdict: FAIL
+Verdict: PASS
 
-This re-verification reused the unchanged PREPARED plan after the implementation
-repair and incorporated the accepted human feedback on provider request horizon.
-The stored-forecast validation failure is repaired. The retry failure is only
-partially repaired: `RangeError` and other non-transport errors propagate, but
-an uncaused programming `TypeError` is still retried and relabelled as provider
-uncertainty.
+This verification reused the unchanged PREPARED plan against the current
+candidate. The previous retry-classification failure is repaired: an uncaused
+programming `TypeError` now propagates without retry or relabelling, while
+timeout/abort and evidenced network failures retain the accepted bounded retry
+behavior. The accepted nominal wall-clock simplification also remains coherent
+with stored-payload validation and inherited scoring semantics.
 
-## Human feedback and contract continuity
+## Contract continuity
 
-`human-feedback-forecast-timeline.md` clarifies that the 195-hour rolling
-request intentionally provides a possible extra complete future day around
-local midnight, while nine calendar days provide matching weather solar data.
-`requestedThroughDate` therefore describes the last complete day the whole
-source request was intended to support; it is not always the current seventh
-target date, the ninth calendar row, or actual returned coverage.
+The accepted provider-horizon refinement remains part of this verification.
+`requestedThroughDate` describes the last complete destination-local day the
+whole source request was intended to support. It is independent of actual
+returned coverage, so a valid partial response can remain reusable without
+being promoted to complete evidence.
 
-This is an accepted contract refinement, but it does not invalidate the
-prepared evaluator. EVAL-01 already requires persistence of the intended
-request horizon, EVAL-03 tests compatibility independently of actual coverage,
-and EVAL-07 permits coalescing keyed by equivalent requested horizon. The plan
-never required `requestedThroughDate` to equal the current seventh date.
-Supplemental boundary evidence was added without changing acceptance semantics.
+The later accepted DST simplification is also preserved. Provider and stored
+timestamps are nominal destination-local wall-clock values in v1. They must be
+real calendar/clock values and remain aligned with observations and solar
+dates, but they are not reconstructed as timezone instants merely to reject a
+DST-gap wall time.
+
+Neither clarification changes the PREPARED plan's acceptance semantics.
 
 ## Planned-criterion results
 
 ### EVAL-01 — Durable data remains application-owned and validatable
 
-**PASS — prior `IMPLEMENTATION_FAILURE` repaired.**
+**PASS.**
 
-The storage boundary now shares semantic local date/time validation with the
-provider boundary, checks stored timestamps against the canonical location's
-timezone, retains timestamp/observation alignment, and checks solar dates and
-timestamps. The retained regression proves `2026-02-30T99:99` is never returned
-from storage; the full storage suite also covers application observation names,
-solar round-trip, canonical aliases, and real-file reopen.
+Real SQLite round-trip and inspection establish canonical location/alias data,
+independent weather and marine generations, fetch time, intended request
+horizon, schema version, application-owned observations, and weather solar
+data. Reopened forecasts reproduce scoring inputs. Raw Open-Meteo field names,
+ratings, and advisories are not stored.
 
-Independent lifecycle evidence continues to establish application-owned JSON,
-append-only source generations, preserved solar data, and rejection of an
-unsupported schema version. Ratings, advisories, raw Open-Meteo field names,
-and provider DTOs are not persisted.
+Unsupported schema versions and malformed application forecasts fail at the
+storage boundary. Shared nominal date/time schemas reject impossible values;
+series alignment, allowed/required observations, marine solar exclusion, and
+solar-date consistency are also enforced. Ratings and advisories remain
+recomputed from the selected generation.
 
 ### EVAL-02 — Alias persistence preserves canonical identity across restart
 
 **PASS.**
 
-Real SQLite restart reuses normalized aliases, canonical location identity,
-and both source snapshots without geocoding or forecast calls. Case and outer
-whitespace normalize; qualification and identity-bearing punctuation remain;
-multiple aliases can share one canonical record. Location/alias creation stays
-transactional and known-alias forecast refresh does not re-geocode.
+Real-file restart and visible alias checks reuse canonical location identity
+and fresh source snapshots without geocoding or forecast requests. Case and
+outer whitespace normalize, distinct qualifiers and identity-bearing text are
+not discarded, multiple aliases may share one canonical location, and
+location/alias creation is transactional. A known alias can refresh forecasts
+without re-geocoding.
 
 ### EVAL-03 — Fresh reuse depends on age and requested horizon, not coverage
 
 **PASS.**
 
-Fresh, compatible complete, partial, and no-data snapshots are reused without
-provider calls and retain honest evidence metadata. Exactly three hours and an
-insufficient requested horizon trigger refresh. The repaired provider horizon
-logic conservatively defaults to the required seventh date for simple provider
-fakes, while Open-Meteo reports the extra day only when both its rolling hourly
-and calendar inputs were intended to cover that complete day.
+Independent lifecycle probes reused fresh compatible complete, partial, and
+no-data snapshots without provider calls while preserving honest state and
+coverage. A snapshot at exactly three hours and a younger snapshot whose
+requested horizon is insufficient each triggered refresh.
 
-Supplemental checks establish the Cape Town boundary: a request at 20:59 local
-reports the current final target date; at 21:00 local the 195-hour request
-reports the following complete date for both sources. The visible rollover test
-then advances across local midnight within the freshness window and reuses the
-persisted partial snapshots without provider calls. Actual returned coverage is
-not consulted when recording that intention.
+Provider-horizon tests retain the local-midnight boundary: the 195-hour rolling
+request advances the recorded complete-day horizon only when all required
+source inputs were intended to cover the additional day. The rollover test
+then reuses a persisted partial generation across midnight without consulting
+actual returned coverage.
 
 ### EVAL-04 — Refresh selection is independent, append-only, and generation-safe
 
 **PASS.**
 
-Independent and visible probes confirm successful sources persist separately,
-a new partial/no-data generation wins over an older complete one, an unrelated
-source can use stale fallback, and complementary generations are not merged.
-SQLite retains prior generations and source success is not rolled back by the
-other source's provider failure.
+Independent and visible probes show source-local refresh and persistence, a
+new partial/no-data generation taking precedence over an older complete one,
+retained append-only history, and no merging of complementary holes across
+generations. One source's success remains committed and selectable when the
+other source fails.
 
 ### EVAL-05 — Transport retries are bounded, classified, and timed per attempt
 
-**FAIL — IMPLEMENTATION_FAILURE.**
+**PASS — previous `IMPLEMENTATION_FAILURE` repaired.**
 
-The accepted retry mechanics otherwise pass: each attempt has a fresh four-
-second timeout; classified transport failures and HTTP 408, 429, and 5xx use at
-most three attempts with 250 ms and 750 ms waits; no wait follows attempt three;
-ordinary 4xx, invalid JSON, provider validation failure, geocoding no-match,
-and the retained `RangeError` programming case are not retried.
+Visible tests establish a fresh four-second timeout per attempt, timeout and
+abort retry, HTTP 408/429/5xx retry, three-attempt exhaustion, exact 250 ms and
+750 ms waits, and no wait after attempt three. Ordinary 4xx, invalid JSON,
+invalid provider data, valid geocoder no-match, and programming errors remain
+non-retryable.
 
-The classifier nevertheless begins with `error instanceof TypeError => true`.
-An independent request-executor probe threw an uncaused
-`TypeError("programmer type")`. It was called three times, both backoffs ran,
-and the final error became `ProviderRequestError` whose cause was the original
-`TypeError`. A coded `ECONNRESET` error was separately confirmed retryable, so
-the probe distinguishes available transport evidence from error-class folklore.
-
-The retained regression now covers both `RangeError` and uncaused `TypeError`.
-The former passes and the latter fails. This is the same prepared criterion and
-same public feedback as the prior verification, not a new requirement: the
-brief and Design Map require retryable transport failures to be distinguished
-from programming errors.
+An independent request-executor probe exercised geocoding, weather, and marine
+operations separately. For every operation, an uncaused programming
+`TypeError` propagated by identity after one attempt with no waits. A coded
+`ECONNRESET` control made three attempts, recorded waits `[250, 750]`, and
+exhausted as `ProviderRequestError`. This validates the repaired classifier
+against actual transport evidence rather than error-class folklore.
 
 ### EVAL-06 — Stale fallback is failure-gated, bounded, and source-local
 
 **PASS.**
 
-Fallback remains available only after provider refresh failure, including at
-exactly 24 hours and excluding one millisecond older. Fresh/stale weather and
-marine combinations remain independent. Partial stale data is not promoted,
-new partial success wins over old complete data, and absent fallback produces
-the inherited `UNAVAILABLE`/`UNKNOWN` behavior.
+Independent lifecycle probes and visible tests admit fallback only after
+provider failure, include exactly 24 hours, exclude one millisecond older, and
+preserve independent fresh/stale weather and marine combinations. Partial
+fallback remains partial, newer successful partial data wins over older
+complete data, and no eligible source yields `UNAVAILABLE`/`UNKNOWN` rather
+than fabricated suitability.
 
 ### EVAL-07 — Equivalent in-process refreshes are coalesced
 
 **PASS.**
 
-Concurrent equivalent aliases produce one refresh per canonical source;
-distinct locations remain independent; settled and failed entries are released.
-The repaired source key uses canonical location, source kind, and the provider-
-reported intended horizon, preventing both duplicate equivalent work and
-incorrect sharing across different request horizons.
+Controlled concurrent assessments produced one provider call per canonical
+source. The coordination key distinguishes canonical location, source, and
+intended horizon; distinct locations do not share work, and settled or failed
+entries are released. Persistence remains durable state rather than a dubious
+replacement for in-process coordination.
 
 ### EVAL-08 — Persistence failure is an internal failure, never source metadata
 
 **PASS.**
 
-Schema initialization, required reads, alias/location transactions, and source
-writes continue to propagate as internal failures. A successful provider result
-is not selected until persistence completes. Storage failures never become
-provider `UNAVAILABLE`, activity `UNKNOWN`, stale fallback, or ephemeral fresh
-metadata. Semantic invalidity is now correctly recognized as such a storage
-failure.
+Schema initialization, required reads, transactional alias/location creation,
+and source writes propagate as internal failures. A provider result is not
+selected until its write completes. Storage failure is never converted into
+source `UNAVAILABLE`, stale fallback, activity `UNKNOWN`, or an ephemeral new
+`fetchedAt`; independently committed source history remains intact.
 
 ### EVAL-09 — Public metadata identifies exactly the selected source
 
 **PASS.**
 
-GraphQL `fetchedAt`, `stale`, source state, and covered dates continue to
-identify the exact selected generation. Fresh partial/no-data data is not stale;
-fallback exposes the old successful fetch time; unavailable sources have null
-time and `stale: false`. No retry or storage internals leak into the schema.
+GraphQL `fetchedAt`, `stale`, state, and covered dates identify the exact
+selected generation. Fresh partial/no-data snapshots report `stale: false`,
+fallback retains the old successful fetch time, and absent sources have null
+time with `stale: false`. Retry, database, and storage-schema internals are not
+exposed, while accepted ratings and advisories remain present.
 
 ### EVAL-10 — The composed service is restartable and reachable over HTTP
 
 **PASS.**
 
-Two real `npm start` processes were run sequentially with the same configured
-SQLite file and localhost endpoint. A GraphQL forecast request returned the
-persisted canonical location and both unchanged fresh source timestamps before
-and after process restart, proving the default provider was not called. Build,
-startup, configured database use, endpoint routing, and shutdown remain sound.
+The documented `npm start` path built and started a real server with a
+configured temporary SQLite file. A localhost GraphQL request returned the
+seven-day assessment and exact persisted weather/marine fetch timestamps. A
+second real process over the same file returned the same canonical location,
+dates, source states, and timestamps without needing the provider, establishing
+restart reuse and safe schema initialization. Visible HTTP checks cover routing,
+invalid requests, GraphQL errors, and clean adapter behavior.
 
 ### EVAL-11 — Accepted location, scoring, advisory, and degradation behavior regresses cleanly
 
 **PASS.**
 
-All inherited location, destination-local date, 23/25-record, provider mapping,
-source degradation, scoring, advisory, GraphQL, persistence, and HTTP tests pass
-except the single supplemental EVAL-05 `TypeError` case. No scoring behavior or
-public activity contract changed during repair.
+All deterministic location, destination-local date, provider mapping,
+23/25-record, source degradation, scoring, advisory, persistence, GraphQL, and
+HTTP checks pass. Selected application-owned forecasts still enter the existing
+scorer; persistence does not store or manufacture coverage, evidence,
+suitability, or advisories. Unexpected programming errors continue to
+propagate rather than degrading into provider uncertainty.
 
 ## Classifications and supporting evidence
 
-- **IMPLEMENTATION_FAILURE:** An uncaused programming `TypeError` thrown by the
-  injected request executor is unconditionally treated as retryable transport
-  failure, attempted three times, backed off, and relabelled as
-  `ProviderRequestError`.
-- **Prior implementation failure repaired:** persisted forecasts now receive
-  semantic and timezone-aware local timestamp validation before selection.
+- **Prior `IMPLEMENTATION_FAILURE` repaired:** uncaused programming
+  `TypeError`s no longer enter transport retry or become provider uncertainty.
+- **Prior timestamp implementation overreach removed:** nominal wall-clock
+  validation now matches the accepted v1 DST model while still rejecting
+  malformed/impossible stored values.
 
-No `EVALUATOR_DEFECT`, `SPECIFICATION_AMBIGUITY`, `INFRASTRUCTURE_FAILURE`, or
-plan-invalidating `CONTRACT_CHANGED` finding affects this rerun.
+No `IMPLEMENTATION_FAILURE`, `EVALUATOR_DEFECT`, `SPECIFICATION_AMBIGUITY`,
+`INFRASTRUCTURE_FAILURE`, or plan-invalidating `CONTRACT_CHANGED` finding
+remains in the current candidate.
 
 ## Commands and independent evidence
 
-- `npm test` before extending the retained retry regression: 10 files,
-  122 tests passed.
-- Final `npm test`: 122 passed, 1 supplemental EVAL-05 test failed.
+- `npm test`: 10 files, 124 tests passed.
 - `npm run typecheck`: passed.
-- `npm run build`: passed, including each real server start.
-- `node /tmp/eval003-lifecycle.mjs`: passed fresh reuse, exact three-hour,
-  horizon mismatch, independent refresh/no-merge, exact 24-hour fallback,
-  coalescing, SQLite history, and unsupported-schema checks.
-- Independent retry-classification probe: `RangeError` propagated after one
-  attempt; uncaused `TypeError` was retried three times with waits `[250,750]`
-  and wrapped; coded `ECONNRESET` was retried three times as expected.
-- Independent provider-horizon probe: 20:59 local retained the required final
-  date; 21:00 local advanced by one complete date for weather and marine.
-- Two permitted `npm start` processes and localhost GraphQL requests: real
-  process restart and persisted reuse passed.
+- `npm run build`: passed.
+- `npm run test:integration`: 4 live Open-Meteo checks passed. This is
+  supporting boundary evidence only; it did not decide the deterministic
+  verdict.
+- `node /tmp/eval003-lifecycle.mjs`: passed fresh partial/no-data reuse, exact
+  three-hour refresh, horizon mismatch, independent refresh/no-merge, exact
+  24-hour fallback, coalescing, append history, and unsupported-schema checks.
+- `node /tmp/eval003-retry.mjs`: passed independent programming-versus-network
+  classification for geocoding, weather, and marine.
+- Real documented server start plus localhost GraphQL request: passed.
+- `node /tmp/eval003-http-restart.mjs`: passed a second real process and
+  persisted GraphQL reuse over the same database file.
 - `git diff --check`: passed.
 
-The optional live Open-Meteo suite was not rerun. Network availability cannot
-decide the remaining deterministic classification defect.
+One initial restart-harness invocation failed to parse because its inline
+JavaScript was incorrectly shell-escaped. It started no product process and
+supplied no product evidence; the same probe was moved unchanged in substance
+to a temporary module and passed.
 
 ## Evaluator integrity and limitations
 
-- The PREPARED plan was not rewritten. The human horizon correction fits its
-  existing intended-horizon criteria and was tested as supplemental evidence.
-- The widened retry regression uses the same injected request seam and oracle
-  as the retained prior regression. A bare programming `TypeError` supplies no
-  transport status, timeout identity, or network cause; the coded connection
-  error control validates that the probe does not reject legitimate retry.
-- The earlier corrected lifecycle-fixture and storage-test oracle mistakes
-  remain disclosed in the historical result and supplied no adverse evidence
-  here.
-- Real process restart was rerun; in-process recreation was not substituted.
-- Spike 002's superseded distinct-fall-back-hour identity was not reintroduced.
+- The PREPARED plan was not rewritten and no candidate-shaped requirement was
+  added after inspection.
+- Independent probes use public construction seams and logical durable state;
+  they do not require private helper names or a hidden SQL layout contract.
+- The transport probe validates its oracle with both a non-transport control
+  and a coded network control for each public operation.
+- Real process and HTTP evidence was rerun; in-process recreation was not used
+  as a substitute for the delivery criterion.
+- No evaluator probe was promoted into the visible suite. The material repaired
+  cases—bare programming `TypeError`, abort, evidenced network failure, and a
+  nominal DST-gap wall time—already have focused permanent regressions, so
+  adding duplicates would weaken rather than improve the suite.
 
 ## Public feedback
 
-- Request-execution retry classification must use evidence that a failure is a
-  transient network/timeout condition. An uncaused programming `TypeError`
-  must propagate without retries, backoff, or conversion to provider
-  uncertainty merely because of its JavaScript class.
+Spike 003 satisfies the prepared persistence, refresh, retry, stale-fallback,
+metadata, runnable-service, and inherited-behavior contract. No contract-level
+implementation issue remains for another implementation retry.

@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  createLocalTimestampValidator,
-  isValidLocalDate,
-} from "./local-date-time.js";
+import { localDateSchema, localTimestampSchema } from "./local-date-time.js";
 
 export interface ResolvedLocation {
   id: string;
@@ -147,8 +144,13 @@ export class OpenMeteoClient {
     private readonly fetcher: Fetcher = (url, init) => fetch(url, init),
     options: OpenMeteoClientOptions = {},
   ) {
-    this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-    this.timeoutSignal = options.timeoutSignal ?? ((milliseconds) => AbortSignal.timeout(milliseconds));
+    this.sleep =
+      options.sleep ??
+      ((milliseconds) =>
+        new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.timeoutSignal =
+      options.timeoutSignal ??
+      ((milliseconds) => AbortSignal.timeout(milliseconds));
   }
 
   async resolveLocation(query: string): Promise<ResolvedLocation> {
@@ -197,11 +199,9 @@ export class OpenMeteoClient {
     // seven required days, and one additional complete day.
     const hoursThroughExtraDay =
       24 - localHour + (requiredDates.length + 1) * 24;
-    const hourlyInputsCoverExtraDay =
-      FORECAST_HOURS >= hoursThroughExtraDay;
+    const hourlyInputsCoverExtraDay = FORECAST_HOURS >= hoursThroughExtraDay;
     const calendarInputsCoverExtraDay =
-      source === "MARINE" ||
-      WEATHER_FORECAST_DAYS >= requiredDates.length + 2;
+      source === "MARINE" || WEATHER_FORECAST_DAYS >= requiredDates.length + 2;
 
     return hourlyInputsCoverExtraDay && calendarInputsCoverExtraDay
       ? addCalendarDays(requiredThroughDate, 1)
@@ -293,7 +293,9 @@ export class OpenMeteoClient {
         });
       } catch (cause) {
         if (!isRetryableTransportFailure(cause)) throw cause;
-        lastFailure = new ProviderRequestError("Open-Meteo request failed", { cause });
+        lastFailure = new ProviderRequestError("Open-Meteo request failed", {
+          cause,
+        });
       }
       if (response?.ok) return response;
       if (response !== undefined) {
@@ -322,22 +324,22 @@ function addCalendarDays(date: string, days: number): string {
 }
 
 function isRetryableTransportFailure(error: unknown): boolean {
-  if (error instanceof TypeError) return true;
   if (
     error instanceof DOMException &&
     (error.name === "AbortError" || error.name === "TimeoutError")
   ) {
     return true;
   }
+
   if (!(error instanceof Error)) return false;
+
   const code = (error as Error & { code?: unknown }).code;
-  if (
-    typeof code === "string" &&
-    RETRYABLE_TRANSPORT_CODES.has(code)
-  ) {
+
+  if (typeof code === "string" && RETRYABLE_TRANSPORT_CODES.has(code)) {
     return true;
   }
-  return isRetryableTransportFailure(error.cause);
+
+  return error.cause !== undefined && isRetryableTransportFailure(error.cause);
 }
 
 function mapLocation(result: GeocodingResult): ResolvedLocation {
@@ -411,18 +413,14 @@ function parseSourceResponse<Observation extends string>(
   const requestedFields = requestedObservations.map(
     (observation) => providerFields[observation],
   );
-  const observationArraySchema = z.array(z.number().finite().nullable());
-  const isValidTimestamp = createLocalTimestampValidator(expectedTimezone);
+  const observationArraySchema = z.array(z.number().nullable());
+
   const providerObservationSchemas = Object.fromEntries(
     requestedFields.map((field) => [field, observationArraySchema]),
   ) as Record<string, typeof observationArraySchema>;
   const hourlySchema = z
     .object({
-      time: z.array(
-        z
-          .string()
-          .refine(isValidTimestamp, "Invalid destination-local timestamp"),
-      ),
+      time: z.array(localTimestampSchema),
       ...providerObservationSchemas,
     })
     .superRefine((hourly, context) => {
@@ -440,9 +438,9 @@ function parseSourceResponse<Observation extends string>(
     });
   const dailySchema = z
     .object({
-      time: z.array(z.string().refine(isValidLocalDate)),
-      sunrise: z.array(z.string().refine(isValidTimestamp).nullable()),
-      sunset: z.array(z.string().refine(isValidTimestamp).nullable()),
+      time: z.array(localDateSchema),
+      sunrise: z.array(localTimestampSchema.nullable()),
+      sunset: z.array(localTimestampSchema.nullable()),
     })
     .superRefine((daily, context) => {
       for (const field of ["sunrise", "sunset"] as const) {

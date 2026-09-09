@@ -206,7 +206,7 @@ export class ForecastService {
   ): Promise<SourceSnapshot> {
     const key = `${location.id}:${source}:${requestedThroughDate}`;
     const existing = this.inFlightRefreshes.get(key);
-    if (existing) return await existing;
+    if (existing) return existing;
 
     const refresh = this.fetchAndPersist(
       location,

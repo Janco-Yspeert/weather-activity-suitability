@@ -50,40 +50,51 @@ describe("OpenMeteoClient", () => {
     ).toBe("2026-09-14");
   });
 
-  it("retries transient fetch failures with per-attempt timeouts", async () => {
-    const fetch = vi.fn()
-      .mockRejectedValueOnce(new DOMException("timed out", "TimeoutError"))
-      .mockResolvedValueOnce(jsonResponse({ results: [] }));
-    const sleep = vi.fn(async () => undefined);
-    const timeoutSignal = vi.fn(() => new AbortController().signal);
-    const client = new OpenMeteoClient(fetch, { sleep, timeoutSignal });
+  it.each(["TimeoutError", "AbortError"])(
+    "retries %s fetch failures with per-attempt timeouts",
+    async (errorName) => {
+      const fetch = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new DOMException("request interrupted", errorName),
+        )
+        .mockResolvedValueOnce(jsonResponse({ results: [] }));
+      const sleep = vi.fn(async () => undefined);
+      const timeoutSignal = vi.fn(() => new AbortController().signal);
+      const client = new OpenMeteoClient(fetch, { sleep, timeoutSignal });
 
-    await expect(client.resolveLocation("Nowhere")).rejects.toThrow(
-      "No supported city or town found",
-    );
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(fetch.mock.calls[0]![1]).toEqual({ signal: timeoutSignal.mock.results[0]!.value });
-    expect(timeoutSignal).toHaveBeenCalledTimes(2);
-    expect(timeoutSignal).toHaveBeenCalledWith(4_000);
-    expect(sleep).toHaveBeenCalledWith(250);
-  });
+      await expect(client.resolveLocation("Nowhere")).rejects.toThrow(
+        "No supported city or town found",
+      );
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[0]![1]).toEqual({
+        signal: timeoutSignal.mock.results[0]!.value,
+      });
+      expect(timeoutSignal).toHaveBeenCalledTimes(2);
+      expect(timeoutSignal).toHaveBeenCalledWith(4_000);
+      expect(sleep).toHaveBeenCalledWith(250);
+    },
+  );
 
   it.each([
     new RangeError("request adapter range defect"),
     new TypeError("request adapter type defect"),
-  ])("does not retry or relabel programming errors from request execution", async (programmingError) => {
-    const fetch = vi.fn(async () => {
-      throw programmingError;
-    });
-    const sleep = vi.fn(async () => undefined);
-    const client = new OpenMeteoClient(fetch, { sleep });
+  ])(
+    "does not retry or relabel programming errors from request execution",
+    async (programmingError) => {
+      const fetch = vi.fn(async () => {
+        throw programmingError;
+      });
+      const sleep = vi.fn(async () => undefined);
+      const client = new OpenMeteoClient(fetch, { sleep });
 
-    await expect(client.resolveLocation("Cape Town")).rejects.toBe(
-      programmingError,
-    );
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(sleep).not.toHaveBeenCalled();
-  });
+      await expect(client.resolveLocation("Cape Town")).rejects.toBe(
+        programmingError,
+      );
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(sleep).not.toHaveBeenCalled();
+    },
+  );
 
   it("retries retryable HTTP statuses but stops after three total attempts", async () => {
     const fetch = vi.fn(async () => jsonResponse({}, false));
@@ -98,38 +109,42 @@ describe("OpenMeteoClient", () => {
   });
 
   it("recovers when a retryable HTTP failure is followed by success", async () => {
-    const fetch = vi.fn()
+    const fetch = vi
+      .fn()
       .mockResolvedValueOnce(jsonResponse({}, false))
       .mockResolvedValueOnce(jsonResponse({ results: [] }));
     const sleep = vi.fn(async () => undefined);
 
-    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
-      .rejects.toBeInstanceOf(LocationNotFoundError);
-    expect(fetch).toHaveBeenCalledTimes(2);
-    expect(sleep).toHaveBeenCalledWith(250);
-  });
-
-  it("recovers when a retryable HTTP failure is followed by success", async () => {
-    const fetch = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({}, false))
-      .mockResolvedValueOnce(jsonResponse({ results: [] }));
-    const sleep = vi.fn(async () => undefined);
-
-    await expect(new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"))
-      .rejects.toBeInstanceOf(LocationNotFoundError);
+    await expect(
+      new OpenMeteoClient(fetch, { sleep }).resolveLocation("Nowhere"),
+    ).rejects.toBeInstanceOf(LocationNotFoundError);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(250);
   });
 
   it("does not retry non-transient HTTP or response failures", async () => {
-    const badRequest = vi.fn(async () => ({ ...jsonResponse({}, false), status: 400 }));
-    await expect(new OpenMeteoClient(badRequest).resolveLocation("Cape Town"))
-      .rejects.toBeInstanceOf(ProviderRequestError);
+    const badRequest = vi.fn(async () => ({
+      ...jsonResponse({}, false),
+      status: 400,
+    }));
+    await expect(
+      new OpenMeteoClient(badRequest).resolveLocation("Cape Town"),
+    ).rejects.toBeInstanceOf(ProviderRequestError);
     expect(badRequest).toHaveBeenCalledTimes(1);
 
-    const invalidJson = vi.fn(async () => ({ ok: true, status: 200, json: async () => { throw new Error("bad JSON"); } }) as unknown as Response);
-    await expect(new OpenMeteoClient(invalidJson).resolveLocation("Cape Town"))
-      .rejects.toBeInstanceOf(ProviderResponseError);
+    const invalidJson = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          json: async () => {
+            throw new Error("bad JSON");
+          },
+        }) as unknown as Response,
+    );
+    await expect(
+      new OpenMeteoClient(invalidJson).resolveLocation("Cape Town"),
+    ).rejects.toBeInstanceOf(ProviderResponseError);
     expect(invalidJson).toHaveBeenCalledTimes(1);
   });
 
@@ -239,14 +254,23 @@ describe("OpenMeteoClient", () => {
     );
   });
 
-  it("wraps transport failures as expected provider request errors", async () => {
-    const client = new OpenMeteoClient(async () => {
-      throw new TypeError("network unavailable");
+  it("retries evidenced network failures and wraps exhaustion", async () => {
+    const transportCause = Object.assign(new Error("connection reset"), {
+      code: "ECONNRESET",
     });
+    const fetch = vi.fn(async () => {
+      throw new TypeError("fetch failed", {
+        cause: transportCause,
+      });
+    });
+    const sleep = vi.fn(async () => undefined);
+    const client = new OpenMeteoClient(fetch, { sleep });
 
     await expect(
       client.fetchWeather(capeTown(), ["airTemperature"]),
     ).rejects.toBeInstanceOf(ProviderRequestError);
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls).toEqual([[250], [750]]);
   });
 
   it("translates application-selected weather observations and maps validated data", async () => {
@@ -443,6 +467,27 @@ describe("OpenMeteoClient", () => {
       );
     },
   );
+
+  it("accepts nominal local timestamps without reconstructing DST instants", async () => {
+    const client = new OpenMeteoClient(async () =>
+      jsonResponse({
+        timezone: "America/New_York",
+        hourly: {
+          time: ["2026-03-08T02:30"],
+          wave_height: [1.5],
+        },
+      }),
+    );
+
+    await expect(
+      client.fetchMarine(
+        { ...capeTown(), timezone: "America/New_York" },
+        ["waveHeight"],
+      ),
+    ).resolves.toMatchObject({
+      localTimestamps: ["2026-03-08T02:30"],
+    });
+  });
 });
 
 function capeTown() {

@@ -14,8 +14,7 @@ export type Reason =
   | "WEATHER"
   | "PREREQUISITE_ABSENT"
   | "STRUCTURAL_NON_APPLICABLE"
-  | "INSUFFICIENT_DATA"
-  | "GLOBAL_EXTREME";
+  | "INSUFFICIENT_DATA";
 
 export type AssessmentDetail =
   | "FLAT_SURF"
